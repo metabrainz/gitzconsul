@@ -2,11 +2,15 @@
 
 from functools import partial
 from os import mkfifo
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 
-from gitzconsul.treewalk import walk
+from gitzconsul.treewalk import (
+    InvalidJsonFileError,
+    readjsonfile,
+    walk,
+)
 
 
 def write(content, path):
@@ -30,7 +34,7 @@ def fifo(path):
 
 
 class TestWalk(unittest.TestCase):
-    """Test of walk()"""
+    """Test of walk-related functions"""
 
     def setUp(self):
         pass
@@ -123,3 +127,52 @@ class TestWalk(unittest.TestCase):
             )
             for path in should_not_be_in:
                 self.assertNotIn(root.joinpath(path), walked)
+
+    def test_readjsonfile(self):
+        """test readjsonfile()"""
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            self.assertTrue(root.is_dir())
+
+            tree = {
+                'topdir': {
+                    'empty.json': touch,
+                    'invalid.json': partial(write, '{key1: "value1"}'),
+                    'valid.json': '{"key1": "value1"}',
+                    'link_to_valid.json': partial(symlink, 'valid.json'),
+                    'fifo.json': mkfifo,
+                }
+            }
+            self.buildtree(root, tree)
+
+            data = readjsonfile(root.joinpath('topdir/valid.json'))
+            self.assertIn('key1', data)
+            self.assertEqual(data['key1'], 'value1')
+
+            with self.assertRaisesRegex(
+                InvalidJsonFileError,
+                    (r"^cannot read json from file.+"
+                        r"Expecting property name enclosed in double quotes")):
+                data = readjsonfile(root.joinpath('topdir/invalid.json'))
+
+            with self.assertRaisesRegex(
+                InvalidJsonFileError,
+                    (r"^cannot read json from file.+"
+                        r"doesn't exist")):
+                data = readjsonfile(root.joinpath('doesntexist'))
+
+            data = readjsonfile(root.joinpath('topdir/link_to_valid.json'))
+            self.assertIn('key1', data)
+            self.assertEqual(data['key1'], 'value1')
+
+            with self.assertRaisesRegex(
+                InvalidJsonFileError,
+                (r"^cannot read json from file.+"
+                    r"Expecting value: line 1 column 1 \(char 0\)")):
+                data = readjsonfile(root.joinpath('topdir/empty.json'))
+
+            with self.assertRaisesRegex(
+                InvalidJsonFileError,
+                (r"^cannot read json from file.+"
+                    r"unsupported file type")):
+                data = readjsonfile(root.joinpath('topdir/fifo.json'))

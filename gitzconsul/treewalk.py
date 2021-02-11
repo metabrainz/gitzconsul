@@ -19,6 +19,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import json
 from pathlib import Path
 
 
@@ -33,3 +34,27 @@ def walk(root):
             continue
         else:
             yield path
+
+
+class InvalidJsonFileError(OSError):
+    """raised when trying to read json from a special file"""
+
+
+def readjsonfile(path):
+    """read file passed as Path as json, and return json data"""
+    if not isinstance(path, Path):
+        path = Path(path)
+    if not path.exists():
+        raise InvalidJsonFileError(
+            "cannot read json from file {}: doesn't exist".format(path)
+        )
+    if not path.is_file():
+        # avoid special files like fifo or socket
+        raise InvalidJsonFileError(
+            "cannot read json from file {}: unsupported file type".format(path)
+        )
+    try:
+        with path.open() as json_file:
+            return json.load(json_file)
+    except (OSError, json.decoder.JSONDecodeError) as exc:
+        raise InvalidJsonFileError("cannot read json from file {}: {}".format(path, exc)) from exc
