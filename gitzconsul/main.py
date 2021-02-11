@@ -1,3 +1,4 @@
+"""gitzconsul command-line"""
 #  gitzconsul is a bridge between git repositories and consul kv
 #
 #    It is a stripped-down Python re-implementation of git2consul
@@ -18,10 +19,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import click
 import logging
 import traceback
 from time import sleep
+
+import click
+
 
 from gitzconsul import Context
 
@@ -29,9 +32,18 @@ from gitzconsul import Context
 log = logging.getLogger('gitzconsul')
 
 
+class ConsulConnectionError(Exception):
+    """Raised in case of consul connection failure"""
+    def __init__(self, msg, *args, **kwargs):
+        super().__init__('Consul connection error:  {}'.format(msg), *args, **kwargs)
+
+
+# pylint: disable=unused-argument
 def loglevelfmt(ctx, param, value):
+    """use to convert lowercased level passed as option to uppercase"""
     if value is not None:
         return value.upper()
+    return None
 
 
 POSSIBLE_LEVELS = (
@@ -89,16 +101,16 @@ def main(**options):
     while not context.kill_now:
         try:
             consul_connected = True
-        except ConsulConnectionError as e:
+        except ConsulConnectionError as exc:
             if consul_connected:
-                log.error(e)
+                log.error(exc)
             consul_connected = False
-        except Exception as e:
-            log.error(e)
+        except Exception as exc:  # pylint: disable=broad-except
+            log.error(exc)
             log.error(traceback.format_exc())
         finally:
             if not context.kill_now:
-                log.debug("sleeping {} second(s)...".format(delay))
+                log.debug("sleeping %d second(s)...", delay)
                 sleep(delay)
 
 
