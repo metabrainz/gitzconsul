@@ -134,3 +134,77 @@ def prepare_for_consul_txn(kvlist):
         encoded_value = base64.b64encode(value).decode("utf-8")
         encoded_key = urllib.parse.quote(key)
         yield encoded_key, encoded_value
+
+
+def txn_set_payload(key, value):
+    """Build a consul.txn set payload"""
+    return {
+        'KV': {
+            'Verb': 'set',
+            'Key': key,
+            'Value': value,
+        }
+    }
+
+
+def txn_set_kv(cons, kvlist):
+    """Execute txn.put set verb for each key/value in kvlist, using cons"""
+    puts = []
+    for key, value in prepare_for_consul_txn(kvlist):
+        puts.append(txn_set_payload(key, value))
+
+    for chunk in chunks(puts, 64):
+        yield cons.txn.put(chunk)
+
+
+def txn_get_payload(key):
+    """Build a consul.txn get payload"""
+    return {
+        'KV': {
+            'Verb': 'get',
+            'Key': key,
+        }
+    }
+
+
+def txn_get_kv(cons, keylist):
+    """Execute txn.put for consul obj cons and get values matching for keys in keylist"""
+    puts = []
+    for key in keylist:
+        encoded_key = urllib.parse.quote(key)
+        puts.append(txn_get_payload(encoded_key))
+
+    for chunk in chunks(puts, 64):
+        yield cons.txn.put(chunk)
+
+
+class ConsulKVException(Exception):
+    """Raised if an error occurs while communicating with consul"""
+
+
+def set_kv(cons, kvlist):
+    """Write keys/values from kvlist to consul KV"""
+    try:
+        for result in txn_set_kv(cons, kvlist):
+            if result['Errors'] is not None:
+                raise ConsulKVException(result['Errors'])
+    except ConsulKVException:
+        raise
+    except Exception as exc:
+        raise ConsulKVException from exc
+
+
+def get_kv(cons, keylist):
+    """Get values for keys from consul KV"""
+    try:
+        for result in txn_get_kv(cons, keylist):
+            if result['Errors'] is not None:
+                raise ConsulKVException(result['Errors'])
+            for entry in result['Results']:
+                key = entry['KV']['Key']
+                value = entry['KV']['Value']
+                yield urllib.parse.unquote(key), base64.b64decode(value).decode('utf-8')
+    except ConsulKVException:
+        raise
+    except Exception as exc:
+        raise ConsulKVException from exc
