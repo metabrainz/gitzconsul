@@ -9,6 +9,7 @@ import unittest
 from gitzconsul.treewalk import (
     InvalidJsonFileError,
     filepath2key,
+    flatten_json_keys,
     readjsonfile,
     walk,
 )
@@ -226,3 +227,34 @@ class TestWalk(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 key = filepath2key('/a/b/c', '/d')  # noqa: F841 pylint: disable=unused-variable
+
+    def test_flatten_json_keys(self):
+        """test test_flatten_json_keys()"""
+        jsondict = {
+            "topkey": {
+                "key1": "value1",
+                "key2": {
+                    "subkey1": "valuesubkey1",
+                    "subkey2": "valuesubkey2",
+                    "subkey3": {
+                        "subsubkey1": "valuesubsubkey1",
+                    }
+                }
+            },
+            "weird": {
+                "": "emptykey",
+                123: "numerickey",
+                (1, 2): "tuplekey",
+                None: "Nonekey",
+            }
+        }
+        expected = [
+            ('topkey|key1', 'value1'),
+            ('topkey|key2|subkey1', 'valuesubkey1'),
+            ('topkey|key2|subkey2', 'valuesubkey2'),
+            ('topkey|key2|subkey3|subsubkey1', 'valuesubsubkey1'),
+            ('weird|123', 'numerickey'),
+            ('weird|(1, 2)', 'tuplekey'),
+        ]
+        self.assertCountEqual(flatten_json_keys(jsondict, sep='|'), expected)
+        self.assertCountEqual(flatten_json_keys(dict()), [])

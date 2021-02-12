@@ -19,6 +19,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from collections.abc import Mapping
 import json
 from pathlib import Path
 
@@ -67,3 +68,24 @@ def filepath2key(path, root, sep="/"):
     if not isinstance(path, Path):
         path = Path(path)
     return sep.join(path.relative_to(root).parts)
+
+
+def flatten_json_keys(jsondict, root=None, sep='/'):
+    """Generator transforming a tree to a list, flattening all keys
+
+    'a': {
+        'b': 'v'
+    }
+    becomes: 'a/b': 'v'
+    """
+    if root is None:
+        root = []
+    for key, value in jsondict.items():
+        if not key:
+            # we skip empty keys
+            continue
+        flat_key = root + [str(key)]
+        if isinstance(value, Mapping):
+            yield from flatten_json_keys(value, root=flat_key, sep=sep)
+        else:
+            yield sep.join(flat_key), value
