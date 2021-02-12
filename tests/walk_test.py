@@ -8,6 +8,7 @@ import unittest
 
 from gitzconsul.treewalk import (
     InvalidJsonFileError,
+    filepath2key,
     readjsonfile,
     walk,
 )
@@ -176,3 +177,52 @@ class TestWalk(unittest.TestCase):
                 (r"^cannot read json from file.+"
                     r"unsupported file type")):
                 data = readjsonfile(root.joinpath('topdir/fifo.json'))
+
+    def test_filepath2key(self):
+        """Test filepath2key()"""
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            self.assertTrue(root.is_dir())
+
+            tree = {
+                'topdir': {
+                    'empty.json': touch,
+                    'invalid.json': partial(write, 'garbage'),
+                    'subdir1': {
+                        'not_a_json': touch,
+                        'valid.json': '{"key1": "value1"}',
+                        'link_to_valid.json': partial(symlink, 'valid.json'),
+                        'subsubdir': {
+                            'another.json': touch,
+                            'subsubsubdir': {
+                                'another.json': touch
+                            }
+                        }
+                    },
+                    'emptysubdir': {},
+                    'linked_subdir': partial(symlink, 'subdir1'),
+                    'not_a_json.2': 'content',
+                    'fifo.json': mkfifo,
+                }
+            }
+            self.buildtree(root, tree)
+
+            keys = [filepath2key(path, root, sep="|") for path in walk(root)]
+            expected = {
+                'topdir|empty.json',
+                'topdir|invalid.json',
+                'topdir|linked_subdir|link_to_valid.json',
+                'topdir|linked_subdir|subsubdir|another.json',
+                'topdir|linked_subdir|subsubdir|subsubsubdir|another.json',
+                'topdir|linked_subdir|valid.json',
+                'topdir|subdir1|link_to_valid.json',
+                'topdir|subdir1|subsubdir|another.json',
+                'topdir|subdir1|subsubdir|subsubsubdir|another.json',
+                'topdir|subdir1|valid.json',
+            }
+
+            self.assertCountEqual(keys, expected)
+
+            with self.assertRaises(ValueError):
+                key = filepath2key('/a/b/c', '/d')  # noqa: F841 pylint: disable=unused-variable

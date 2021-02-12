@@ -58,3 +58,12 @@ def readjsonfile(path):
             return json.load(json_file)
     except (OSError, json.decoder.JSONDecodeError) as exc:
         raise InvalidJsonFileError("cannot read json from file {}: {}".format(path, exc)) from exc
+
+
+def filepath2key(path, root, sep="/"):
+    """Build a key from path which has to be relative to root
+       path=/a/b/c root=/a -> b/c
+    """
+    if not isinstance(path, Path):
+        path = Path(path)
+    return sep.join(path.relative_to(root).parts)
