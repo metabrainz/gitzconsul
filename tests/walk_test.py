@@ -12,6 +12,7 @@ from gitzconsul.treewalk import (
     chunks,
     filepath2key,
     flatten_json_keys,
+    prepare_for_consul_txn,
     readjsonfile,
     walk,
     treewalk,
@@ -343,3 +344,40 @@ class TestWalk(unittest.TestCase):
             [20, 21, 22, 23, 24]
         ]
         self.assertCountEqual(result, expected)
+
+    def test_prepare_for_consul_txn(self):
+        """test prepare_for_consul_txn()"""
+        jsondict1 = {
+            "topkey1": {
+                "key with space": {
+                    "sub/key1": "skipme",
+                    "subkey2": "valuesubkey2",
+                    "subkey3": {
+                        "subsubkey1": "valuesubsubkey1",
+                    }
+                },
+                "num1": 123,
+                "array1": ['a', 'b', 'c'],
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            self.assertTrue(root.is_dir())
+
+            tree = {
+                'topdir': {
+                    'valid1.json': partial(write, json.dumps(jsondict1)),
+                }
+            }
+            self.buildtree(root, tree)
+            result = list(prepare_for_consul_txn(treewalk(root)))
+            expected = [
+                ('topdir/valid1.json/topkey1/key%20with%20space/subkey2', 'dmFsdWVzdWJrZXky'),
+                ('topdir/valid1.json/topkey1/key%20with%20space/subkey3/subsubkey1',
+                    'dmFsdWVzdWJzdWJrZXkx'),
+                ('topdir/valid1.json/topkey1/num1', 'MTIz'),
+                ('topdir/valid1.json/topkey1/array1', 'WydhJywgJ2InLCAnYydd'),
+            ]
+
+            self.maxDiff = 4096  # pylint: disable=invalid-name
+            self.assertCountEqual(result, expected)

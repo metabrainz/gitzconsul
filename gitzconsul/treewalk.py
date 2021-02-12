@@ -19,9 +19,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import base64
 from collections.abc import Mapping
 import json
 from pathlib import Path
+import urllib.parse
 
 
 def walk(root):
@@ -116,3 +118,19 @@ def chunks(spliceable, chunk_size):
     """Generate chunks of chunk_size from spliceable"""
     for idx in range(0, len(spliceable), chunk_size):
         yield spliceable[idx:idx + chunk_size]
+
+
+def prepare_for_consul_txn(kvlist):
+    """Encode keys and values to suit consul txn"""
+
+    # according to https://github.com/breser/git2consul#json
+    # Expanded keys are URI-encoded.
+    # The spaces in "you get the picture" are thus converted into %20.
+    for key, value in kvlist:
+        if not isinstance(value, bytes):
+            value = str(value).encode('utf-8')
+        # https://python-consul.readthedocs.io/en/latest/#consul.base.Consul.Txn
+        # https://www.consul.io/api-docs/txn#kv-operations
+        encoded_value = base64.b64encode(value).decode("utf-8")
+        encoded_key = urllib.parse.quote(key)
+        yield encoded_key, encoded_value
