@@ -207,6 +207,7 @@ class TestWalk(unittest.TestCase):
                     'linked_subdir': partial(symlink, 'subdir1'),
                     'not_a_json.2': 'content',
                     'fifo.json': mkfifo,
+                    'skip|me.json': 'contains_separator',
                 }
             }
             self.buildtree(root, tree)
@@ -223,6 +224,7 @@ class TestWalk(unittest.TestCase):
                 'topdir|subdir1|subsubdir|another.json',
                 'topdir|subdir1|subsubdir|subsubsubdir|another.json',
                 'topdir|subdir1|valid.json',
+                None,  # happens when a part of the path contains separator
             }
 
             self.assertCountEqual(keys, expected)
@@ -299,6 +301,9 @@ class TestWalk(unittest.TestCase):
                     'empty.json': touch,
                     'valid1.json': partial(write, json.dumps(jsondict1)),
                     'valid2.json': partial(write, json.dumps(jsondict2)),
+                },
+                'skip|me': {
+                    'valid1.json': partial(write, json.dumps(jsondict1)),
                 }
             }
             self.buildtree(root, tree)

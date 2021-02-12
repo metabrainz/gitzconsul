@@ -67,7 +67,10 @@ def filepath2key(path, root, sep="/"):
     """
     if not isinstance(path, Path):
         path = Path(path)
-    return sep.join(path.relative_to(root).parts)
+    parts = path.relative_to(root).parts
+    if any(sep in part for part in parts):
+        return None
+    return sep.join(parts)
 
 
 def flatten_json_keys(jsondict, root=None, sep='/'):
@@ -101,6 +104,8 @@ def treewalk(root, sep='/'):
         try:
             jsondict = readjsonfile(path)
             pathkey = filepath2key(path, root, sep=sep)
+            if not pathkey:
+                continue
             for key, value in flatten_json_keys(jsondict, sep=sep):
                 yield pathkey + sep + key, value
         except InvalidJsonFileError:
