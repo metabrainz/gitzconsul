@@ -1,5 +1,6 @@
 """Test walk()"""
 
+import json
 from functools import partial
 from os import mkfifo
 from pathlib import Path
@@ -12,6 +13,7 @@ from gitzconsul.treewalk import (
     flatten_json_keys,
     readjsonfile,
     walk,
+    treewalk,
 )
 
 
@@ -258,3 +260,59 @@ class TestWalk(unittest.TestCase):
         ]
         self.assertCountEqual(flatten_json_keys(jsondict, sep='|'), expected)
         self.assertCountEqual(flatten_json_keys(dict()), [])
+
+    def test_treewalk(self):
+        """test treewalk()"""
+        jsondict1 = {
+            "topkey1": {
+                "key1": "value1",
+                "key2": {
+                    "subkey1": "valuesubkey1",
+                    "subkey2": "valuesubkey2",
+                    "subkey3": {
+                        "subsubkey1": "valuesubsubkey1",
+                    }
+                },
+                "num1": 123,
+            }
+        }
+        jsondict2 = {
+            "topkey2": {
+                "key1": "value1",
+                "key2": {
+                    "subkey1": "valuesubkey1",
+                    "subkey2": "valuesubkey2",
+                    "subkey3": {
+                        "subsubkey1": "valuesubsubkey1",
+                    }
+                },
+                "array1": ['a', 'b', 'c'],
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            self.assertTrue(root.is_dir())
+
+            tree = {
+                'topdir': {
+                    'empty.json': touch,
+                    'valid1.json': partial(write, json.dumps(jsondict1)),
+                    'valid2.json': partial(write, json.dumps(jsondict2)),
+                }
+            }
+            self.buildtree(root, tree)
+            result = list(treewalk(root, sep='|'))
+            expected = [
+                ('topdir|valid1.json|topkey1|key1', 'value1'),
+                ('topdir|valid1.json|topkey1|key2|subkey1', 'valuesubkey1'),
+                ('topdir|valid1.json|topkey1|key2|subkey2', 'valuesubkey2'),
+                ('topdir|valid1.json|topkey1|key2|subkey3|subsubkey1', 'valuesubsubkey1'),
+                ('topdir|valid1.json|topkey1|num1', 123),
+                ('topdir|valid2.json|topkey2|array1', ['a', 'b', 'c']),
+                ('topdir|valid2.json|topkey2|key1', 'value1'),
+                ('topdir|valid2.json|topkey2|key2|subkey1', 'valuesubkey1'),
+                ('topdir|valid2.json|topkey2|key2|subkey2', 'valuesubkey2'),
+                ('topdir|valid2.json|topkey2|key2|subkey3|subsubkey1', 'valuesubsubkey1'),
+            ]
+            self.maxDiff = 4096  # pylint: disable=invalid-name
+            self.assertCountEqual(result, expected)

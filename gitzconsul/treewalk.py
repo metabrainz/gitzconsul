@@ -89,3 +89,15 @@ def flatten_json_keys(jsondict, root=None, sep='/'):
             yield from flatten_json_keys(value, root=flat_key, sep=sep)
         else:
             yield sep.join(flat_key), value
+
+
+def treewalk(root, sep='/'):
+    """Parse a tree"""
+    for path in walk(root):
+        try:
+            jsondict = readjsonfile(path)
+            pathkey = filepath2key(path, root, sep=sep)
+            for key, value in flatten_json_keys(jsondict, sep=sep):
+                yield pathkey + sep + key, value
+        except InvalidJsonFileError:
+            pass
