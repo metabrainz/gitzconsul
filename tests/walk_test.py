@@ -248,6 +248,7 @@ class TestWalk(unittest.TestCase):
                 123: "numerickey",
                 (1, 2): "tuplekey",
                 None: "Nonekey",
+                'skip|me': 'skipme',
             }
         }
         expected = [
@@ -280,7 +281,7 @@ class TestWalk(unittest.TestCase):
             "topkey2": {
                 "key1": "value1",
                 "key2": {
-                    "subkey1": "valuesubkey1",
+                    "sub|key1": "skipme",
                     "subkey2": "valuesubkey2",
                     "subkey3": {
                         "subsubkey1": "valuesubsubkey1",
@@ -310,7 +311,6 @@ class TestWalk(unittest.TestCase):
                 ('topdir|valid1.json|topkey1|num1', 123),
                 ('topdir|valid2.json|topkey2|array1', ['a', 'b', 'c']),
                 ('topdir|valid2.json|topkey2|key1', 'value1'),
-                ('topdir|valid2.json|topkey2|key2|subkey1', 'valuesubkey1'),
                 ('topdir|valid2.json|topkey2|key2|subkey2', 'valuesubkey2'),
                 ('topdir|valid2.json|topkey2|key2|subkey3|subsubkey1', 'valuesubsubkey1'),
             ]

@@ -84,7 +84,11 @@ def flatten_json_keys(jsondict, root=None, sep='/'):
         if not key:
             # we skip empty keys
             continue
-        flat_key = root + [str(key)]
+        key = str(key)
+        if sep in key:
+            # we skip containing sep
+            continue
+        flat_key = root + [key]
         if isinstance(value, Mapping):
             yield from flatten_json_keys(value, root=flat_key, sep=sep)
         else:
