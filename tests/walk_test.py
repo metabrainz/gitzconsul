@@ -9,6 +9,7 @@ import unittest
 
 from gitzconsul.treewalk import (
     InvalidJsonFileError,
+    chunks,
     filepath2key,
     flatten_json_keys,
     readjsonfile,
@@ -321,3 +322,24 @@ class TestWalk(unittest.TestCase):
             ]
             self.maxDiff = 4096  # pylint: disable=invalid-name
             self.assertCountEqual(result, expected)
+
+    def test_chunks(self):
+        """test chunks()"""
+        numchunks = 10
+        chunk_size = 64
+        sample = list(range(0, numchunks*chunk_size))
+        count = 0
+        for chunk in chunks(sample, chunk_size):
+            self.assertEqual(len(chunk), chunk_size)
+            count += 1
+        self.assertEqual(count, numchunks)
+
+        chunk_size = 10
+        sample = list(range(0, int(chunk_size*2.5)))
+        result = list(chunks(sample, chunk_size))
+        expected = [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+            [20, 21, 22, 23, 24]
+        ]
+        self.assertCountEqual(result, expected)

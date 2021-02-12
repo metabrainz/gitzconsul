@@ -110,3 +110,9 @@ def treewalk(root, sep='/'):
                 yield pathkey + sep + key, value
         except InvalidJsonFileError:
             pass
+
+
+def chunks(spliceable, chunk_size):
+    """Generate chunks of chunk_size from spliceable"""
+    for idx in range(0, len(spliceable), chunk_size):
+        yield spliceable[idx:idx + chunk_size]
