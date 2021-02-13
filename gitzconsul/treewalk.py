@@ -19,11 +19,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import base64
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import urllib.parse
 
 
 def walk(root):
@@ -112,99 +110,3 @@ def treewalk(root, sep='/'):
                 yield pathkey + sep + key, value
         except InvalidJsonFileError:
             pass
-
-
-def chunks(spliceable, chunk_size):
-    """Generate chunks of chunk_size from spliceable"""
-    for idx in range(0, len(spliceable), chunk_size):
-        yield spliceable[idx:idx + chunk_size]
-
-
-def prepare_for_consul_txn(kvlist):
-    """Encode keys and values to suit consul txn"""
-
-    # according to https://github.com/breser/git2consul#json
-    # Expanded keys are URI-encoded.
-    # The spaces in "you get the picture" are thus converted into %20.
-    for key, value in kvlist:
-        if not isinstance(value, bytes):
-            value = str(value).encode('utf-8')
-        # https://python-consul.readthedocs.io/en/latest/#consul.base.Consul.Txn
-        # https://www.consul.io/api-docs/txn#kv-operations
-        encoded_value = base64.b64encode(value).decode("utf-8")
-        encoded_key = urllib.parse.quote(key)
-        yield encoded_key, encoded_value
-
-
-def txn_set_payload(key, value):
-    """Build a consul.txn set payload"""
-    return {
-        'KV': {
-            'Verb': 'set',
-            'Key': key,
-            'Value': value,
-        }
-    }
-
-
-def txn_set_kv(cons, kvlist):
-    """Execute txn.put set verb for each key/value in kvlist, using cons"""
-    puts = []
-    for key, value in prepare_for_consul_txn(kvlist):
-        puts.append(txn_set_payload(key, value))
-
-    for chunk in chunks(puts, 64):
-        yield cons.txn.put(chunk)
-
-
-def txn_get_payload(key):
-    """Build a consul.txn get payload"""
-    return {
-        'KV': {
-            'Verb': 'get',
-            'Key': key,
-        }
-    }
-
-
-def txn_get_kv(cons, keylist):
-    """Execute txn.put for consul obj cons and get values matching for keys in keylist"""
-    puts = []
-    for key in keylist:
-        encoded_key = urllib.parse.quote(key)
-        puts.append(txn_get_payload(encoded_key))
-
-    for chunk in chunks(puts, 64):
-        yield cons.txn.put(chunk)
-
-
-class ConsulKVException(Exception):
-    """Raised if an error occurs while communicating with consul"""
-
-
-def set_kv(cons, kvlist):
-    """Write keys/values from kvlist to consul KV"""
-    try:
-        for result in txn_set_kv(cons, kvlist):
-            if result['Errors'] is not None:
-                raise ConsulKVException(result['Errors'])
-    except ConsulKVException:
-        raise
-    except Exception as exc:
-        raise ConsulKVException from exc
-
-
-def get_kv(cons, keylist):
-    """Get values for keys from consul KV"""
-    try:
-        for result in txn_get_kv(cons, keylist):
-            if result['Errors'] is not None:
-                raise ConsulKVException(result['Errors'])
-            for entry in result['Results']:
-                key = entry['KV']['Key']
-                value = entry['KV']['Value']
-                yield urllib.parse.unquote(key), base64.b64decode(value).decode('utf-8')
-    except ConsulKVException:
-        raise
-    except Exception as exc:
-        raise ConsulKVException from exc

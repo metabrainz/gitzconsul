@@ -3,7 +3,6 @@ from http.server import (
     BaseHTTPRequestHandler,
     HTTPServer,
 )
-import base64
 import json
 import socket
 import time
@@ -14,13 +13,8 @@ import consul
 import requests
 
 
-from gitzconsul.treewalk import (
+from gitzconsul.consultxn import (
     chunks,
-    prepare_for_consul_txn,
-    txn_set_payload,
-    txn_get_payload,
-    txn_set_kv,
-    txn_get_kv,
     set_kv,
     get_kv,
 )
@@ -115,6 +109,29 @@ def start_mock_server(port):
             raise Exception("Mock server didn't start!")
 
 
+class TestTxnUtils(unittest.TestCase):
+    def test_chunks(self):
+        """test chunks()"""
+        numchunks = 10
+        chunk_size = 64
+        sample = list(range(0, numchunks*chunk_size))
+        count = 0
+        for chunk in chunks(sample, chunk_size):
+            self.assertEqual(len(chunk), chunk_size)
+            count += 1
+        self.assertEqual(count, numchunks)
+
+        chunk_size = 10
+        sample = list(range(0, int(chunk_size*2.5)))
+        result = list(chunks(sample, chunk_size))
+        expected = [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+            [20, 21, 22, 23, 24]
+        ]
+        self.assertCountEqual(result, expected)
+
+
 class TestConsulTxn(unittest.TestCase):
     """Test consul txn"""
 
@@ -129,68 +146,13 @@ class TestConsulTxn(unittest.TestCase):
 
         self.consul = consul.Consul(port=port)
 
-    def test_consul_txn(self):
-        """test consul txn"""
-        keysvalues = [('key'+str(i), 'value'+str(i)) for i in range(0, 80)]
-        puts = []
-        gets = []
-        for key, value in prepare_for_consul_txn(keysvalues):
-            puts.append(txn_set_payload(key, value))
-            gets.append(txn_get_payload(key))
-
-        with self.assertRaises(consul.base.ClientError):
-            result = self.consul.txn.put(puts)
-
-        all_keys = dict(keysvalues)
-        for chunk in chunks(puts, 64):
-            result = self.consul.txn.put(chunk)
-            self.assertIsNone(result['Errors'])
-            for entry in result['Results']:
-                key = entry['KV']['Key']
-                self.assertIn(key, all_keys)
-                del all_keys[key]
-        self.assertEqual(all_keys, {})
-
-        all_values = dict(keysvalues)
-        for chunk in chunks(gets, 64):
-            result = self.consul.txn.put(chunk)
-            self.assertIsNone(result['Errors'])
-            for entry in result['Results']:
-                key = entry['KV']['Key']
-                value = entry['KV']['Value']
-                self.assertIn(key, all_values)
-                self.assertEqual(all_values[key], base64.b64decode(value).decode('utf-8'))
-
-    def test_consul_txn_set_get_kv(self):
-        """test txn_set_kv() and txn_get_kv()"""
-        keysvalues = [('key'+str(i), 'value'+str(i)) for i in range(0, 80)]
-
-        all_keys = dict(keysvalues)
-        count = 0
-        for result in txn_set_kv(self.consul, keysvalues):
-            self.assertIsNone(result['Errors'])
-            for entry in result['Results']:
-                key = entry['KV']['Key']
-                self.assertIn(key, all_keys)
-                del all_keys[key]
-            count += 1
-        self.assertEqual(all_keys, {})
-        self.assertEqual(count, 2)
-
-        all_values = dict(keysvalues)
-        for result in txn_get_kv(self.consul, all_values.keys()):
-            for entry in result['Results']:
-                key = entry['KV']['Key']
-                value = entry['KV']['Value']
-                self.assertIn(key, all_values)
-                self.assertEqual(all_values[key], base64.b64decode(value).decode('utf-8'))
-
     def test_consul_set_get_kv(self):
         """test set_kv() and get_kv()"""
         keysvalues = [('key '+str(i), 'value '+str(i)) for i in range(0, 80)]
 
         all_keys = list(dict(keysvalues))
-        set_kv(self.consul, keysvalues)
-        retrieved_kv = dict(get_kv(self.consul, all_keys))
+        set_kvs = list(set_kv(self.consul, keysvalues))
+        self.assertCountEqual(set_kvs, all_keys)
+        retrieved_kvs = dict(get_kv(self.consul, all_keys))
         # self.maxDiff = None
-        self.assertCountEqual(retrieved_kv, dict(keysvalues))
+        self.assertCountEqual(retrieved_kvs, dict(keysvalues))
