@@ -9,11 +9,11 @@ import time
 from threading import Thread
 import unittest
 
-import consul
 import requests
 
 
 from gitzconsul.consultxn import (
+    ConsulConnection,
     chunks,
     set_kv,
     get_kv,
@@ -71,7 +71,8 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
                         })
                 elif item['KV']['Verb'] == 'get-tree':
                     # FIXME: incorrect logic
-                    selected = [key for key in self.kv_store if key.startswith(item['KV']['Key'])]
+                    selected = [key for key in self.kv_store
+                                if key.startswith(item['KV']['Key'])]
                     for key in selected:
                         resp.append({
                             'KV': self.kv_store[key]
@@ -152,7 +153,7 @@ class TestConsulTxn(unittest.TestCase):
             port = get_free_port()
             start_mock_server(port)
 
-        self.consul = consul.Consul(port=port)
+        self.consul = ConsulConnection('http://localhost:%d' % port)
 
     def test_consul_set_get_kv(self):
         """test set_kv() and get_kv()"""

@@ -1,18 +1,67 @@
 from base64 import b64decode, b64encode
-from urllib.parse import unquote, quote
+import json
+from urllib.parse import unquote, quote, urlencode
+
+import requests
 
 
 class ConsulTransactionException(Exception):
     """Raised if an error occurs while communicating with consul"""
 
 
+class ConsulConnection:
+
+    def __init__(self, url, data_center=None, acl_token=None,
+                 acl_token_file=None, user_agent="gitzconsul"):
+        self.baseurl = url
+        self._params = dict()
+
+        if data_center is not None:
+            self._params['dc'] = data_center
+
+        if acl_token_file:
+            with open(acl_token_file, "r") as tokenfile:
+                value = tokenfile.read()
+                if value:
+                    acl_token = value
+        if acl_token:
+            acl_token = acl_token.strip()
+
+        self.headers = {
+            'Content-Type': "application/json",
+            'User-Agent': user_agent,
+            'Accept': "*/*",
+            'Cache-Control': "no-cache",
+        }
+        if acl_token:
+            self.headers['X-Consul-Token'] = acl_token
+
+    @property
+    def params(self):
+        return urlencode(self._params)
+
+
 class ConsulTransaction:
     MAX_PER_TRANSACTION = 64
 
-    def __init__(self, consul):
-        self._consul = consul
+    def __init__(self, consul_connection):
         self._operations = []
         self._errors = None
+        self._consul_connection = consul_connection
+
+    def _query(self, payload):
+        conn = self._consul_connection
+        data = json.dumps(payload)
+        url = "{}/v1/txn".format(conn.baseurl)
+        params = conn.params
+        if params:
+            url += '?' + params
+        response = requests.request("PUT",
+                                    url,
+                                    data=data,
+                                    headers=conn.headers
+                                    )
+        return response.status_code, json.loads(response.content)
 
     def __enter__(self):
         return self
@@ -23,16 +72,13 @@ class ConsulTransaction:
     def add(self, what):
         self._operations.append(what)
 
-    def _execute(self):
-        for chunk in chunks(self._operations, self.MAX_PER_TRANSACTION):
-            yield self._consul.txn.put(chunk)
-
     def execute(self, result_keys=('Key', 'Value')):
-        try:
-            for result in self._execute():
-                if result['Errors'] is not None:
-                    raise ConsulTransactionException(result['Errors'])
-                for entry in result['Results']:
+        errors = dict()
+        for count, chunk in enumerate(chunks(self._operations,
+                                             self.MAX_PER_TRANSACTION)):
+            code, content = self._query(chunk)
+            if code == 200:
+                for entry in content['Results']:
                     resdict = {}
                     for kv_key, kv_value in entry['KV'].items():
                         if kv_key == 'Key':
@@ -41,8 +87,13 @@ class ConsulTransaction:
                             kv_value = decode_value(kv_value)
                         resdict[kv_key] = kv_value
                     yield resdict
-        except Exception as exc:
-            raise ConsulTransactionException from exc
+            else:
+                error_msg = None
+                if content and 'Errors' in content:
+                    error_msg = content['Errors']
+                errors[count] = code, error_msg, chunk
+        if errors:
+            raise ConsulTransactionException(errors)
 
     # https://www.consul.io/api-docs/txn#kv-operations
 
