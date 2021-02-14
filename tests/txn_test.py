@@ -13,12 +13,20 @@ import requests
 
 
 from gitzconsul.consultxn import (
+    ConsulTransaction,
+    ConsulTransactionException,
     ConsulConnection,
     chunks,
     set_kv,
     get_kv,
     get_tree_kv,
 )
+
+
+def resp_obj(consul_obj):
+    obj = consul_obj.copy()
+    obj['KV']['Value'] = None
+    return obj
 
 
 class MockServerRequestHandler(BaseHTTPRequestHandler):
@@ -28,7 +36,7 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):  # pylint: disable=invalid-name
         """Implement do_GET"""
-        if self.path == 'ping':
+        if self.path == '/ping':
             self.send_response(200, message="pong")
             self.end_headers()
         else:
@@ -49,40 +57,56 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             resp = []
+            errors = []
             self.idx += 1
-            for item in json_content:
-                if item['KV']['Verb'] == 'set':
+            for i, op in enumerate(json_content):
+                if op['KV']['Verb'] == 'set':
+                    if op['KV']['Key'] in self.kv_store:
+                        modifyidx = op['KV']['ModifyIndex'] + 1
+                    else:
+                        createidx = 0
+                        modifyidx = 0
                     consul_obj = {
                             'LockIndex': 0,
-                            'Key': item['KV']['Key'],
+                            'Key': op['KV']['Key'],
                             'Flags': 0,
-                            'Value': item['KV']['Value'],
-                            'CreateIndex': self.idx,
-                            'ModifyIndex': self.idx
+                            'Value': op['KV']['Value'],
+                            'CreateIndex': createidx,
+                            'ModifyIndex': modifyidx,
                         }
-                    self.kv_store[item['KV']['Key']] = consul_obj
+                    self.kv_store[op['KV']['Key']] = consul_obj
                     resp.append({
-                        'KV': consul_obj
+                        'KV': resp_obj(consul_obj)
                     })
-                elif item['KV']['Verb'] == 'get':
-                    if item['KV']['Key'] in self.kv_store:
+                elif op['KV']['Verb'] == 'get':
+                    if op['KV']['Key'] in self.kv_store:
                         resp.append({
-                            'KV': self.kv_store[item['KV']['Key']]
+                            'KV': self.kv_store[op['KV']['Key']]
                         })
-                elif item['KV']['Verb'] == 'get-tree':
+                    else:
+                        errors.append(
+                            {'OpIndex': i,
+                             'What': 'key "{}" doesn\'t exist'.format(op['KV']['Key'])})
+                elif op['KV']['Verb'] == 'get-tree':
                     # FIXME: incorrect logic
                     selected = [key for key in self.kv_store
-                                if key.startswith(item['KV']['Key'])]
+                                if key.startswith(op['KV']['Key'])]
                     for key in selected:
                         resp.append({
                             'KV': self.kv_store[key]
                         })
-
+            if errors:
+                errors = json.dumps(errors)
+                resp = None
+                code = 409
+            else:
+                errors = None
+                code = 200
             resp_json = {
                 'Results': resp,
-                'Errors': None
+                'Errors': errors,
             }
-            self.send_response(200)
+            self.send_response(code)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
             json_str = json.dumps(resp_json)
