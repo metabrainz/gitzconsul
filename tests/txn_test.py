@@ -17,6 +17,7 @@ from gitzconsul.consultxn import (
     chunks,
     set_kv,
     get_kv,
+    get_tree_kv,
 )
 
 
@@ -67,6 +68,13 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
                     if item['KV']['Key'] in self.kv_store:
                         resp.append({
                             'KV': self.kv_store[item['KV']['Key']]
+                        })
+                elif item['KV']['Verb'] == 'get-tree':
+                    # FIXME: incorrect logic
+                    selected = [key for key in self.kv_store if key.startswith(item['KV']['Key'])]
+                    for key in selected:
+                        resp.append({
+                            'KV': self.kv_store[key]
                         })
 
             resp_json = {
@@ -158,3 +166,13 @@ class TestConsulTxn(unittest.TestCase):
         retrieved_kvs = dict(get_kv(self.consul, all_keys))
         self.maxDiff = None
         self.assertCountEqual(retrieved_kvs, dict(keysvalues))
+
+        prefix = 'topkey/subkey1/'
+        keys = list(get_tree_kv(self.consul, prefix))
+        expected = [key for key in all_keys if key.startswith(prefix)]
+        self.assertCountEqual(keys, expected)
+
+        prefix = 'topkey/sub'
+        keys = list(get_tree_kv(self.consul, prefix))
+        expected = [key for key in all_keys if key.startswith(prefix)]
+        self.assertCountEqual(keys, expected)

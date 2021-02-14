@@ -236,3 +236,10 @@ def get_kv(cons, keylist):
             txn.kv_get(key)
         for result in txn.execute():
             yield result['Key'], result['Value']
+
+
+def get_tree_kv(cons, key):
+    with ConsulTransaction(cons) as txn:
+        txn.kv_get_tree(key)
+        for result in txn.execute():
+            yield result['Key']
