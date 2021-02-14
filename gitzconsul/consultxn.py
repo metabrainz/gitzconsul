@@ -39,13 +39,16 @@ class ConsulTransaction:
                             kv_value = decode_key(kv_value)
                         elif kv_key == 'Value':
                             kv_value = decode_value(kv_value)
-                        if kv_key in result_keys:
-                            resdict[kv_key] = kv_value
+                        resdict[kv_key] = kv_value
                     yield resdict
         except Exception as exc:
             raise ConsulTransactionException from exc
 
-    def kv_set(self, key, value):
+    # https://www.consul.io/api-docs/txn#kv-operations
+
+    def kv_set(self, key, value, flags=None):
+        """Sets the Key to the given Value"""
+
         payload = {
             'KV': {
                 'Verb': 'set',
@@ -55,11 +58,132 @@ class ConsulTransaction:
         }
         self.add(payload)
 
+    def kv_cas(self, key, value, index, flags=None):
+        """Sets, but with CAS semantics"""
+
+        payload = {
+            'KV': {
+                'Verb': 'cas',
+                'Key': encode_key(key),
+                'Value': encode_value(value),
+                'Index': int(index),
+            }
+        }
+        self.add(payload)
+
+    def kv_lock(self, key, value, session, flags=None):
+        """Lock with the given Session"""
+
+        payload = {
+            'KV': {
+                'Verb': 'lock',
+                'Key': encode_key(key),
+                'Value': encode_value(value),
+                'Session': session,
+            }
+        }
+        self.add(payload)
+
+    def kv_unlock(self, key, value, session, flags=None):
+        """Unlock with the given Session"""
+
+        payload = {
+            'KV': {
+                'Verb': 'unlock',
+                'Key': encode_key(key),
+                'Value': encode_value(value),
+                'Session': session,
+            }
+        }
+        self.add(payload)
+
     def kv_get(self, key):
+        """Get the key, fails if it does not exist"""
+
         payload = {
             'KV': {
                 'Verb': 'get',
                 'Key': encode_key(key),
+            }
+        }
+        self.add(payload)
+
+    def kv_get_tree(self, key):
+        """Gets all keys with the prefix"""
+
+        payload = {
+            'KV': {
+                'Verb': 'get-tree',
+                'Key': encode_key(key),
+            }
+        }
+        self.add(payload)
+
+    def kv_check_index(self, key, index):
+        """Fail if modify index != index"""
+
+        payload = {
+            'KV': {
+                'Verb': 'check-index',
+                'Key': encode_key(key),
+                'Index': int(index),
+            }
+        }
+        self.add(payload)
+
+    def kv_check_session(self, key, session):
+        """Fail if not locked by session"""
+
+        payload = {
+            'KV': {
+                'Verb': 'check-session',
+                'Key': encode_key(key),
+                'Session': session,
+            }
+        }
+        self.add(payload)
+
+    def kv_check_not_exists(self, key):
+        """Fail if key exists"""
+
+        payload = {
+            'KV': {
+                'Verb': 'check-not-exists',
+                'Key': encode_key(key),
+            }
+        }
+        self.add(payload)
+
+    def kv_delete(self, key):
+        """Delete the key"""
+
+        payload = {
+            'KV': {
+                'Verb': 'delete',
+                'Key': encode_key(key),
+            }
+        }
+        self.add(payload)
+
+    def kv_delete_tree(self, key):
+        """Delete all keys with a prefix"""
+
+        payload = {
+            'KV': {
+                'Verb': 'delete-tree',
+                'Key': encode_key(key),
+            }
+        }
+        self.add(payload)
+
+    def kv_delete_cas(self, key, index):
+        """Delete, but with CAS semantics"""
+
+        payload = {
+            'KV': {
+                'Verb': 'delete-cas',
+                'Key': encode_key(key),
+                'Index': int(index),
             }
         }
         self.add(payload)
