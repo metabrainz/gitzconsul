@@ -148,11 +148,13 @@ class TestConsulTxn(unittest.TestCase):
 
     def test_consul_set_get_kv(self):
         """test set_kv() and get_kv()"""
-        keysvalues = [('key '+str(i), 'value '+str(i)) for i in range(0, 80)]
+        keysvalues = [
+            ('topkey/subkey{}/key {}'.format(i % 8, i),
+             'value '+str(i)) for i in range(0, 80)]
 
         all_keys = list(dict(keysvalues))
         set_kvs = list(set_kv(self.consul, keysvalues))
         self.assertCountEqual(set_kvs, all_keys)
         retrieved_kvs = dict(get_kv(self.consul, all_keys))
-        # self.maxDiff = None
+        self.maxDiff = None
         self.assertCountEqual(retrieved_kvs, dict(keysvalues))
