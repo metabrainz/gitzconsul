@@ -240,11 +240,11 @@ class TestConsulTxn(unittest.TestCase):
             txn.kv_get("key_to_delete")
             txn.kv_delete("unkown_key_to_delete")
 
-        for results, errors in txn.execute():
-            self.assertIsNone(results)
-            ops, errs = errors
-            self.assertEqual(len(errs), 1)
-            opindex = errs[0]['OpIndex']
-            self.assertEqual(opindex, 3)
-            self.assertEqual(ops[opindex],
-                             {'Verb': 'get', 'Key': 'key_to_delete'})
+            for results, errors in txn.execute():
+                self.assertIsNone(results)
+                ops, errs = errors
+                self.assertEqual(len(errs), 1)
+                opindex = errs[0]['OpIndex']
+                self.assertEqual(opindex, 3)
+                self.assertEqual(ops[opindex],
+                                 {'Verb': 'get', 'Key': 'key_to_delete'})
