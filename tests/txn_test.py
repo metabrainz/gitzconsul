@@ -250,3 +250,21 @@ class TestConsulTxn(unittest.TestCase):
                 self.assertEqual(opindex, 3)
                 self.assertEqual(ops[opindex],
                                  {'Verb': 'get', 'Key': 'key_to_delete'})
+
+    def test_consul_set_int(self):
+        with ConsulTransaction(self.consul) as txn:
+            txn.kv_set("keyxxx", 666)
+            txn.kv_get("keyxxx")
+
+            results = list(txn.execute())
+            self.assertEqual(results[0][0]['Value'], '')
+            self.assertEqual(results[1][0]['Value'], '666')
+
+    def test_consul_set_empty(self):
+        with ConsulTransaction(self.consul) as txn:
+            txn.kv_set("keyxzx", '')
+            txn.kv_get("keyxzx")
+
+            results = list(txn.execute())
+            self.assertEqual(results[0][0]['Value'], '')
+            self.assertEqual(results[1][0]['Value'], '')
