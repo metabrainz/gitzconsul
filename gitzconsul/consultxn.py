@@ -260,8 +260,9 @@ def encode_value(value):
 
 def decode_value(value):
     if value is not None:
-        value = b64decode(value).decode('utf-8')
-    return value
+        return b64decode(value).decode('utf-8')
+    else:
+        return ''
 
 
 def encode_key(key):
