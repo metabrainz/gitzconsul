@@ -57,6 +57,9 @@ class ConsulConnection:
     def params(self):
         return urlencode(self._params)
 
+    def __str__(self):
+        return self.baseurl
+
 
 class ConsulTransactionOp:
 
