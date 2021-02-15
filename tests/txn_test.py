@@ -198,12 +198,12 @@ class TestConsulTxn(unittest.TestCase):
         self.assertCountEqual(retrieved_kvs, dict(keysvalues))
 
         prefix = 'topkey/subkey1/'
-        keys = list(get_tree_kv(self.consul, prefix))
+        keys = list(dict(get_tree_kv(self.consul, prefix)))
         expected = [key for key in all_keys if key.startswith(prefix)]
         self.assertCountEqual(keys, expected)
 
         prefix = 'topkey/sub'
-        keys = list(get_tree_kv(self.consul, prefix))
+        keys = list(dict(get_tree_kv(self.consul, prefix)))
         expected = [key for key in all_keys if key.startswith(prefix)]
         self.assertCountEqual(keys, expected)
 

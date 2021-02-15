@@ -303,4 +303,4 @@ def get_tree_kv(cons, key):
         txn.kv_get_tree(key)
         for result, errors in txn.execute():
             if not errors:
-                yield result['Key']
+                yield result['Key'], result['Value']
