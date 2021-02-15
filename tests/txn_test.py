@@ -14,7 +14,6 @@ import requests
 
 from gitzconsul.consultxn import (
     ConsulTransaction,
-    ConsulTransactionException,
     ConsulConnection,
     chunks,
     set_kv,
@@ -25,7 +24,7 @@ from gitzconsul.consultxn import (
 
 def resp_obj(consul_obj):
     obj = consul_obj.copy()
-    obj['KV']['Value'] = None
+    obj['Value'] = None
     return obj
 
 
@@ -53,7 +52,8 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
             if num > 64:
                 self.send_response(
                     413,
-                    message="Transaction contains too many operations (%d > 64)" % num)
+                    message=("Transaction contains too many operations"
+                             " (%d > 64)") % num)
                 self.end_headers()
                 return
             resp = []
@@ -86,7 +86,8 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
                     else:
                         errors.append(
                             {'OpIndex': i,
-                             'What': 'key "{}" doesn\'t exist'.format(op['KV']['Key'])})
+                             'What': 'key "{}" doesn\'t exist'.format(
+                                 op['KV']['Key'])})
                 elif op['KV']['Verb'] == 'get-tree':
                     # FIXME: incorrect logic
                     selected = [key for key in self.kv_store
@@ -96,7 +97,6 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
                             'KV': self.kv_store[key]
                         })
             if errors:
-                errors = json.dumps(errors)
                 resp = None
                 code = 409
             else:
@@ -201,3 +201,28 @@ class TestConsulTxn(unittest.TestCase):
         keys = list(get_tree_kv(self.consul, prefix))
         expected = [key for key in all_keys if key.startswith(prefix)]
         self.assertCountEqual(keys, expected)
+
+    def test_consul_get_key_not_found(self):
+        with ConsulTransaction(self.consul) as txn:
+            # we first fill a chunk with valid ops
+            for i in range(0, 64):
+                txn.kv_set("known_key%s" % i, i)
+            # we start next chunk with 2 valid ops, but third one should fail
+            txn.kv_set("known_key", "666")
+            txn.kv_get("known_key")
+            txn.kv_get("unknown_key")
+            count = 0
+            for results, errors in txn.execute():
+                if count < 64:
+                    # we assert first chunk of operations did well
+                    self.assertIsNone(errors)
+                else:
+                    # we assert second chunk of operations failed on third op
+                    self.assertIsNone(results)
+                    ops, errs = errors
+                    self.assertEqual(len(errs), 1)
+                    opindex = errs[0]['OpIndex']
+                    self.assertEqual(opindex, 2)
+                    self.assertEqual(ops[opindex],
+                                     {'Verb': 'get', 'Key': 'unknown_key'})
+                count += 1
