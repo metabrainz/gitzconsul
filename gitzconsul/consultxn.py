@@ -59,6 +59,8 @@ class ConsulTransactionOp:
 
 class ConsulTransaction:
     MAX_PER_TRANSACTION = 64
+    # https://requests.readthedocs.io/en/master/user/quickstart/#timeouts
+    TIMEOUT = 0.5
 
     def __init__(self, consul_connection):
         self._operations = []
@@ -75,7 +77,8 @@ class ConsulTransaction:
         response = requests.request("PUT",
                                     url,
                                     data=data,
-                                    headers=conn.headers
+                                    headers=conn.headers,
+                                    timeout=self.TIMEOUT,
                                     )
         return response.status_code, json.loads(response.content)
 
