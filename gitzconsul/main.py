@@ -27,17 +27,11 @@ import click
 
 
 from gitzconsul import Context
+from gitzconsul.sync import sync
+from gitzconsul.consultxn import ConsulConnection
 
 
 log = logging.getLogger('gitzconsul')
-
-
-class ConsulConnectionError(Exception):
-    """Raised in case of consul connection failure"""
-
-    def __init__(self, msg, *args, **kwargs):
-        super().__init__('Consul connection error:  {}'.format(msg),
-                         *args, **kwargs)
 
 
 # pylint: disable=unused-argument
@@ -58,6 +52,18 @@ POSSIBLE_LEVELS = (
 
 
 @click.command()
+@click.option(
+    '-r',
+    '--root-directory',
+    help='root directory',
+    required=True
+)
+@click.option(
+    '-n',
+    '--name',
+    help='top key name',
+    required=True
+)
 @click.option(
     '-u',
     '--consul-url',
@@ -107,16 +113,18 @@ POSSIBLE_LEVELS = (
 def main(**options):
     """Register kv values into consul based on git repository content"""
     context = Context(options)
-    consul_connected = False
     delay = 5
 
+    print(context.options)
     while not context.kill_now:
         try:
-            consul_connected = True
-        except ConsulConnectionError as exc:
-            if consul_connected:
-                log.error(exc)
-            consul_connected = False
+            consul_connection = ConsulConnection(
+                context.options['consul_url'],
+                data_center=context.options['consul_datacenter'],
+                acl_token=context.options['consul_token'],
+                acl_token_file=context.options['consul_token_file']
+            )
+            sync(context.options['root_directory'], context.options['name'], consul_connection)
         except Exception as exc:  # pylint: disable=broad-except
             log.error(exc)
             log.error(traceback.format_exc())
