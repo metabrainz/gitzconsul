@@ -33,64 +33,94 @@ from gitzconsul.consultxn import (
 log = logging.getLogger('gitzconsul')
 
 
-def sync(root, name, consul_connection):
-    if not isinstance(root, Path):
-        root = Path(root)
-    if not root.is_dir():
-        raise Exception("a directory is required")
-    if not isinstance(consul_connection, ConsulConnection):
-        raise Exception("a ConsulConnection is required")
-    if not name:
-        raise Exception("a name is required")
-    log.info("Querying consul %s" % consul_connection)
-    topkey = name + '/'
-    known_kv_items = dict(get_tree_kv(consul_connection, topkey))
-    to_add = []
-    to_modify = []
-    known_kv_keys = set(known_kv_items)
-    log.info("Found %d keys" % len(known_kv_keys))
-    log.info("Parsing %s" % root)
-    for raw_key, value in treewalk(root):
-        key = topkey + raw_key
-        if key not in known_kv_keys:
-            to_add.append((key, value))
-        elif str(value) != str(known_kv_items[key]):
-            log.debug(value)
-            log.debug(known_kv_items[key])
-            # FIXME: int vs str, problem?
-            to_modify.append((key, value))
-            del known_kv_items[key]
-        else:
-            del known_kv_items[key]
-    to_delete = [key for key in list(known_kv_items)]
+class SyncKVException(Exception):
+    """SyncKVException"""
 
-    if to_modify:
-        log.info("Modifying %d element(s)" % len(to_modify))
-        log.debug(to_modify)
-        with ConsulTransaction(consul_connection) as txn:
-            for tup in to_modify:
+
+class SyncKV:
+
+    def __init__(self, root, name, consul_connection):
+        if not isinstance(root, Path):
+            root = Path(root)
+        if not root.is_dir():
+            raise SyncKVException("a directory is required")
+        if not isinstance(consul_connection, ConsulConnection):
+            raise SyncKVException("a ConsulConnection is required")
+        if not name:
+            raise SyncKVException("a name is required")
+        self.root = root
+        self.name = name
+        self.consul_connection = consul_connection
+        self.topkey = self.name + '/'
+
+    def do(self):
+        log.info("Syncing consul @%s (%s) with %s" % (
+                    self.consul_connection,
+                    self.topkey,
+                    self.root,
+                    )
+                )
+        known_kv_items = dict(get_tree_kv(self.consul_connection, self.topkey))
+        log.debug("kv items in consul: %r" % known_kv_items)
+        known_kv_keys = set(known_kv_items)
+        self.num_consul_keys = len(known_kv_items)
+        self.num_dir_keys = 0
+        self.to_add = []
+        self.to_modify = []
+        for raw_key, value in treewalk(self.root):
+            value = str(value)  # all values are stored as strings
+            key = self.topkey + raw_key
+            if key not in known_kv_keys:
+                self.to_add.append((key, value))
+            elif value != known_kv_items[key]:
+                self.to_modify.append((key, value))
+                del known_kv_items[key]
+            else:
+                del known_kv_items[key]
+            self.num_dir_keys += 1
+        self.to_delete = [key for key in list(known_kv_items)]
+        self.kv_sync()
+
+    def kv_sync(self):
+        num_add = len(self.to_add)
+        num_del = len(self.to_delete)
+        num_mod = len(self.to_modify)
+        if not (num_add + num_del + num_mod):
+            return
+        log.info("Consul: %d Dir: %d Modified: %d Added: %d Deleted: %d" % (
+                 self.num_consul_keys, self.num_dir_keys, num_mod, num_add,
+                 num_del))
+        if num_mod:
+            self.kv_modify()
+        if num_add:
+            self.kv_add()
+        if num_del:
+            self.kv_delete()
+
+    def kv_modify(self):
+        log.debug("to_modify: %r" % self.to_modify)
+        with ConsulTransaction(self.consul_connection) as txn:
+            for tup in self.to_modify:
                 key, value = tup
                 txn.kv_set(key, value)
             for results, errors in txn.execute():
                 if errors:
                     log.error(errors)
 
-    if to_add:
-        log.info("Adding %d element(s)" % len(to_add))
-        log.debug(to_add)
-        with ConsulTransaction(consul_connection) as txn:
-            for tup in to_add:
+    def kv_add(self):
+        log.debug("to_add: %r" % self.to_add)
+        with ConsulTransaction(self.consul_connection) as txn:
+            for tup in self.to_add:
                 key, value = tup
                 txn.kv_set(key, value)
             for results, errors in txn.execute():
                 if errors:
                     log.error(errors)
 
-    if to_delete:
-        log.info("Deleting %d element(s)" % len(to_delete))
-        log.debug(to_delete)
-        with ConsulTransaction(consul_connection) as txn:
-            for key in to_delete:
+    def kv_delete(self):
+        log.debug("to_delete: %r" % self.to_delete)
+        with ConsulTransaction(self.consul_connection) as txn:
+            for key in self.to_delete:
                 txn.kv_delete(key)
             for results, errors in txn.execute():
                 if errors:

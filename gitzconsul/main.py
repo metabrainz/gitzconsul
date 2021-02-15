@@ -27,7 +27,7 @@ import click
 
 
 from gitzconsul import Context
-from gitzconsul.sync import sync
+from gitzconsul.sync import SyncKV
 from gitzconsul.consultxn import ConsulConnection
 
 
@@ -121,7 +121,7 @@ def main(**options):
     context = Context(options)
     delay = context.options['delay']
 
-    print(context.options)
+    log.info("Options: %r" % context.options)
     while not context.kill_now:
         try:
             consul_connection = ConsulConnection(
@@ -130,7 +130,9 @@ def main(**options):
                 acl_token=context.options['consul_token'],
                 acl_token_file=context.options['consul_token_file']
             )
-            sync(context.options['root_directory'], context.options['name'], consul_connection)
+            sync = SyncKV(context.options['root_directory'],
+                          context.options['name'], consul_connection)
+            sync.do()
         except Exception as exc:  # pylint: disable=broad-except
             log.error(exc)
             log.error(traceback.format_exc())
