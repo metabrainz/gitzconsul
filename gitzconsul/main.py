@@ -34,8 +34,10 @@ log = logging.getLogger('gitzconsul')
 
 class ConsulConnectionError(Exception):
     """Raised in case of consul connection failure"""
+
     def __init__(self, msg, *args, **kwargs):
-        super().__init__('Consul connection error:  {}'.format(msg), *args, **kwargs)
+        super().__init__('Consul connection error:  {}'.format(msg),
+                         *args, **kwargs)
 
 
 # pylint: disable=unused-argument
@@ -57,19 +59,29 @@ POSSIBLE_LEVELS = (
 
 @click.command()
 @click.option(
-    '-h',
-    '--consul-host',
-    help='consul agent host',
-    default='127.0.0.1',
+    '-u',
+    '--consul-url',
+    help='consul url',
+    default='http://localhost:8500',
     show_default=True
 )
 @click.option(
-    '-p',
-    '--consul-port',
-    help='consul agent port',
-    default=8500,
-    type=click.INT,
-    show_default=True
+    '-d',
+    '--consul-datacenter',
+    help='consul datacenter',
+    default=None,
+)
+@click.option(
+    '-t',
+    '--consul-token',
+    help='consul token',
+    default=None,
+)
+@click.option(
+    '-T',
+    '--consul-token-file',
+    help='consul token file',
+    default=None,
 )
 @click.option(
     '-f',
