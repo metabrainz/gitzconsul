@@ -62,10 +62,12 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
             for i, op in enumerate(json_content):
                 if op['KV']['Verb'] == 'set':
                     if op['KV']['Key'] in self.kv_store:
-                        modifyidx = op['KV']['ModifyIndex'] + 1
+                        cur = self.kv_store[op['KV']['Key']]['ModifyIndex']
+                        modifyidx = cur + 1
+                        createidx = self.kv_store[op['KV']['Key']]['CreateIndex']
                     else:
-                        createidx = 0
-                        modifyidx = 0
+                        createidx = self.idx
+                        modifyidx = self.idx
                     consul_obj = {
                             'LockIndex': 0,
                             'Key': op['KV']['Key'],
