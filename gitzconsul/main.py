@@ -73,6 +73,12 @@ POSSIBLE_LEVELS = (
 )
 @click.option(
     '-d',
+    '--delay',
+    help='delay',
+    default=15,
+)
+@click.option(
+    '-a',
     '--consul-datacenter',
     help='consul datacenter',
     default=None,
@@ -113,7 +119,7 @@ POSSIBLE_LEVELS = (
 def main(**options):
     """Register kv values into consul based on git repository content"""
     context = Context(options)
-    delay = 5
+    delay = context.options['delay']
 
     print(context.options)
     while not context.kill_now:
