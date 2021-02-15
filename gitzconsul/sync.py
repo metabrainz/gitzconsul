@@ -19,6 +19,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import logging
 from pathlib import Path
 
 from gitzconsul.treewalk import treewalk
@@ -27,6 +28,9 @@ from gitzconsul.consultxn import (
     ConsulConnection,
     ConsulTransaction
 )
+
+
+log = logging.getLogger('gitzconsul')
 
 
 def sync(root, name, consul_connection):
@@ -38,49 +42,56 @@ def sync(root, name, consul_connection):
         raise Exception("a ConsulConnection is required")
     if not name:
         raise Exception("a name is required")
+    log.info("Querying consul %s" % consul_connection)
     topkey = name + '/'
     known_kv_items = dict(get_tree_kv(consul_connection, topkey))
     to_add = []
     to_modify = []
     known_kv_keys = set(known_kv_items)
-    print(known_kv_keys)
+    log.info("Found %d keys" % len(known_kv_keys))
+    log.info("Parsing %s" % root)
     for raw_key, value in treewalk(root):
         key = topkey + raw_key
-        print(key)
         if key not in known_kv_keys:
             to_add.append((key, value))
-        elif value != known_kv_items[key]:
+        elif str(value) != str(known_kv_items[key]):
+            log.debug(value)
+            log.debug(known_kv_items[key])
+            # FIXME: int vs str, problem?
             to_modify.append((key, value))
             del known_kv_items[key]
         else:
             del known_kv_items[key]
     to_delete = [key for key in list(known_kv_items)]
 
-    print("Modify")
-    print(to_modify)
-    with ConsulTransaction(consul_connection) as txn:
-        for tup in to_modify:
-            key, value = tup
-            txn.kv_set(key, value)
-        for results, errors in txn.execute():
-            if errors:
-                print(errors)
+    if to_modify:
+        log.info("Modifying %d element(s)" % len(to_modify))
+        log.debug(to_modify)
+        with ConsulTransaction(consul_connection) as txn:
+            for tup in to_modify:
+                key, value = tup
+                txn.kv_set(key, value)
+            for results, errors in txn.execute():
+                if errors:
+                    log.error(errors)
 
-    print("Add")
-    print(to_add)
-    with ConsulTransaction(consul_connection) as txn:
-        for tup in to_add:
-            key, value = tup
-            txn.kv_set(key, value)
-        for results, errors in txn.execute():
-            if errors:
-                print(errors)
+    if to_add:
+        log.info("Adding %d element(s)" % len(to_add))
+        log.debug(to_add)
+        with ConsulTransaction(consul_connection) as txn:
+            for tup in to_add:
+                key, value = tup
+                txn.kv_set(key, value)
+            for results, errors in txn.execute():
+                if errors:
+                    log.error(errors)
 
-    print("Delete")
-    print(to_delete)
-    with ConsulTransaction(consul_connection) as txn:
-        for key in to_delete:
-            txn.kv_delete(key)
-        for results, errors in txn.execute():
-            if errors:
-                print(errors)
+    if to_delete:
+        log.info("Deleting %d element(s)" % len(to_delete))
+        log.debug(to_delete)
+        with ConsulTransaction(consul_connection) as txn:
+            for key in to_delete:
+                txn.kv_delete(key)
+            for results, errors in txn.execute():
+                if errors:
+                    log.error(errors)
