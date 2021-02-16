@@ -21,6 +21,9 @@
 
 import logging
 import traceback
+from pathlib import Path
+import subprocess
+import sys
 from time import sleep
 
 import click
@@ -51,12 +54,135 @@ POSSIBLE_LEVELS = (
 )
 
 
+def init_git_repo(target_dir, git_remote, git_ref):
+    # check if local repo exists
+    path = Path(target_dir)
+    if not path.is_absolute():
+        log.error("{} isn't an absolute path".format(path))
+        return False
+    try:
+        path.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        if not path.is_dir():
+            log.error("{} isn't a directory".format(path))
+            return False
+    else:
+        log.info("{} directory was created".format(path))
+
+    log.info("Target directory: {}".format(path))
+
+    result = subprocess.run(['git', 'ls-remote', git_remote, git_ref],
+                            capture_output=True)
+    if result.returncode:
+        log.error("Cannot find git remote repo: {} {}".format(git_remote,
+                                                              git_ref))
+        return False
+    log.info("Remote repository: {} ref={}".format(git_remote, git_ref))
+
+    # clone if needed
+    result = subprocess.run(['git', 'rev-parse', git_ref], cwd=path,
+                            capture_output=True)
+    if result.returncode:
+        log.info("Cloning repo...")
+        result = subprocess.run(['git', 'clone', git_remote, path],
+                                capture_output=True)
+        if result.returncode:
+            log.error("Failed to clone {}: {}".format(git_remote,
+                                                      result.stderr))
+            return False
+
+    # create our own branch, and set it to proper ref
+    result = subprocess.run(['git', 'checkout', '-B', 'gitzconsul', git_ref],
+                            cwd=path, capture_output=True)
+    if result.returncode:
+        log.error("Failed to checkout {}: {}".format(git_ref, result.stderr))
+        return False
+
+    commit_id = get_local_commit_id(path)
+    if not commit_id:
+        return False
+    log.info("Local commit id: {}".format(commit_id))
+
+    return path
+
+
+def get_local_commit_id(path):
+    result = subprocess.run(['git', 'rev-parse', 'gitzconsul'], cwd=path,
+                            capture_output=True)
+    if result.returncode:
+        log.error(result)
+        return False
+
+    return result.stdout.decode('utf-8').strip()
+
+
+def get_remote_commit_id(path, git_ref):
+    result = subprocess.run(['git', 'ls-remote', '--exit-code', 'origin',
+                             git_ref],
+                            cwd=path, capture_output=True)
+    if result.returncode:
+        log.error(result)
+        return False
+    return result.stdout.decode('utf-8').strip().split()[0]
+
+
+def sync_branch(path, git_ref):
+    local_commit_id = get_local_commit_id(path)
+    if not local_commit_id:
+        return False
+
+    remote_commit_id = get_remote_commit_id(path, git_ref)
+    if not remote_commit_id:
+        return False
+
+    if local_commit_id != remote_commit_id:
+        log.info("Resync needed: local {} != {} remote".format(
+            local_commit_id, remote_commit_id))
+
+        result = subprocess.run(['git', 'fetch', 'origin', git_ref],
+                                cwd=path, capture_output=True)
+        if result.returncode:
+            log.error(result)
+            return False
+
+        result = subprocess.run(['git', 'reset', '--hard', 'FETCH_HEAD'],
+                                cwd=path, capture_output=True)
+        if result.returncode:
+            log.error(result)
+            return False
+
+        commit_id = get_local_commit_id(path)
+        if not commit_id:
+            return False
+        log.info("Synced to commit id: {}".format(commit_id))
+
+    return False
+
+
 @click.command()
 @click.option(
     '-r',
     '--root-directory',
-    help='root directory',
+    help='root directory, relative to target directory',
+    default=""
+)
+@click.option(
+    '-o',
+    '--target-directory',
+    help='target directory, must be absolute path',
     required=True
+)
+@click.option(
+    '-g',
+    '--git-url',
+    help='git repository remote url',
+    default=None
+)
+@click.option(
+    '-R',
+    '--git-ref',
+    help='git repository remote ref',
+    default='refs/heads/master'
 )
 @click.option(
     '-n',
@@ -122,15 +248,36 @@ def main(**options):
     delay = context.options['delay']
 
     log.info("Options: %r" % context.options)
+    repo_path = None
+    git_ref = context.options['git_ref']
+    git_url = context.options['git_url']
+    if git_url:
+        repo_path = init_git_repo(
+            context.options['target_directory'],
+            git_url,
+            git_ref
+        )
+        if not repo_path:
+            sys.exit(1)
+
+    root_directory = Path(context.options['root_directory'])
+    if root_directory.is_absolute():
+        log.error("root directory must be relative to target directory")
+        sys.exit(1)
+    abs_root_directory = repo_path.joinpath(root_directory)
     while not context.kill_now:
         try:
+            if repo_path:
+                ret = sync_branch(repo_path, git_ref)
+                if ret:
+                    log.error("Git remote repo sync error")
             consul_connection = ConsulConnection(
                 context.options['consul_url'],
                 data_center=context.options['consul_datacenter'],
                 acl_token=context.options['consul_token'],
                 acl_token_file=context.options['consul_token_file']
             )
-            sync = SyncKV(context.options['root_directory'],
+            sync = SyncKV(abs_root_directory,
                           context.options['name'], consul_connection)
             sync.do()
         except Exception as exc:  # pylint: disable=broad-except
