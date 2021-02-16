@@ -25,7 +25,9 @@ from pathlib import Path
 
 
 def walk(root):
-    """Walk down tree starting at root and return a generator among all json files"""
+    """Walk down tree starting at root and return a generator among all
+       json files
+    """
     for path in Path(root).iterdir():
         if path.is_dir():
             yield from walk(path)
@@ -58,7 +60,8 @@ def readjsonfile(path):
         with path.open() as json_file:
             return json.load(json_file)
     except (OSError, json.decoder.JSONDecodeError) as exc:
-        raise InvalidJsonFileError("cannot read json from file {}: {}".format(path, exc)) from exc
+        raise InvalidJsonFileError(
+            "cannot read json from file {}: {}".format(path, exc)) from exc
 
 
 def filepath2key(path, root, sep="/"):
