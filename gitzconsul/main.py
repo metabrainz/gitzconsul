@@ -259,11 +259,18 @@ def main(**options):
         )
         if not repo_path:
             sys.exit(1)
+    else:
+        # no remote repository
+        repo_path = Path(context.options['target_directory'])
+        if not repo_path.is_dir():
+            log.error("Target {} isn't a directory".format(repo_path))
+            sys.exit(1)
 
     root_directory = Path(context.options['root_directory'])
     if root_directory.is_absolute():
         log.error("root directory must be relative to target directory")
         sys.exit(1)
+
     abs_root_directory = repo_path.joinpath(root_directory)
     while not context.kill_now:
         try:
