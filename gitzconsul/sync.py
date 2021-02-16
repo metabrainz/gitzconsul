@@ -59,7 +59,7 @@ class SyncKV:
                     self.topkey,
                     self.root,
                     )
-                )
+                 )
         known_kv_items = dict(get_tree_kv(self.consul_connection, self.topkey))
         log.debug("kv items in consul: %r" % known_kv_items)
         known_kv_keys = set(known_kv_items)

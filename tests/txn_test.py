@@ -19,6 +19,7 @@ from gitzconsul.consultxn import (
     set_kv,
     get_kv,
     get_tree_kv,
+    get_tree_kv_indexes,
 )
 
 
@@ -60,11 +61,12 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
             errors = []
             self.idx += 1
             for i, op in enumerate(json_content):
-                if op['KV']['Verb'] == 'set':
+                if op['KV']['Verb'] in ('set', 'cas'):
                     if op['KV']['Key'] in self.kv_store:
                         cur = self.kv_store[op['KV']['Key']]['ModifyIndex']
                         modifyidx = cur + 1
-                        createidx = self.kv_store[op['KV']['Key']]['CreateIndex']
+                        createidx = self.kv_store[op['KV']['Key']][
+                            'CreateIndex']
                     else:
                         createidx = self.idx
                         modifyidx = self.idx
@@ -208,6 +210,20 @@ class TestConsulTxn(unittest.TestCase):
         keys = list(dict(get_tree_kv(self.consul, prefix)))
         expected = [key for key in all_keys if key.startswith(prefix)]
         self.assertCountEqual(keys, expected)
+
+        key_idx = {}
+        for key, (value, idx) in get_tree_kv_indexes(self.consul, prefix):
+            key_idx[key] = idx
+
+        with ConsulTransaction(self.consul) as txn:
+            for key, idx in key_idx.items():
+                txn.kv_cas(key, "value", idx)
+            for results, errors in txn.execute():
+                self.assertIsNone(errors)
+
+        for key, (value, idx) in get_tree_kv_indexes(self.consul, prefix):
+            self.assertGreater(idx, key_idx[key])
+            self.assertEqual(value, "value", idx)
 
     def test_consul_get_key_not_found(self):
         with ConsulTransaction(self.consul) as txn:

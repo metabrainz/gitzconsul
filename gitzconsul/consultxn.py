@@ -308,3 +308,12 @@ def get_tree_kv(cons, key):
         for result, errors in txn.execute():
             if not errors:
                 yield result['Key'], result['Value']
+
+
+def get_tree_kv_indexes(cons, key):
+    match_keys = {'Key', 'Value', 'ModifyIndex'}
+    with ConsulTransaction(cons) as txn:
+        txn.kv_get_tree(key)
+        for result, errors in txn.execute(match_keys=match_keys):
+            if not errors:
+                yield result['Key'], (result['Value'], result['ModifyIndex'])
