@@ -20,8 +20,12 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from collections.abc import Mapping
+import logging
 import json
 from pathlib import Path
+
+
+log = logging.getLogger('gitzconsul')
 
 
 def walk(root):
@@ -111,5 +115,6 @@ def treewalk(root, sep='/'):
                 continue
             for key, value in flatten_json_keys(jsondict, sep=sep):
                 yield pathkey + sep + key, value
-        except InvalidJsonFileError:
+        except InvalidJsonFileError as exc:
+            log.error(exc)
             pass
