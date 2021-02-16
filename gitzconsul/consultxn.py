@@ -143,6 +143,10 @@ class ConsulTransaction:
 
     # https://www.consul.io/api-docs/txn#kv-operations
 
+    # CAS: If the cas is 0, then Consul will only put the key if it does not
+    # already exist. If the cas value is non-zero, then the key is only set
+    # if the index matches the ModifyIndex of that key.
+
     def kv_set(self, key, value, flags=None):
         """Sets the Key to the given Value"""
 
