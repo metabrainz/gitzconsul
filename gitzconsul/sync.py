@@ -68,9 +68,15 @@ class SyncKV:
         self.num_dir_keys = 0
         self.to_add = []
         self.to_modify = []
-        for raw_key, value in treewalk(self.root):
-            value = str(value)  # all values are stored as strings
+        for raw_key, value, error in treewalk(self.root):
             key = self.topkey + raw_key
+            if error:
+                for k in list(known_kv_items):
+                    if k.startswith(key):
+                        # do not touch kv matching bugged json file
+                        del known_kv_items[k]
+                continue
+            value = str(value)  # all values are stored as strings
             if key not in known_kv_keys:
                 self.to_add.append((key, value))
             else:

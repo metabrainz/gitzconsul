@@ -299,6 +299,7 @@ class TestWalk(unittest.TestCase):
             tree = {
                 'topdir': {
                     'empty.json': touch,
+                    'invalid.json': partial(write, 'garbage'),
                     'valid1.json': partial(write, json.dumps(jsondict1)),
                     'valid2.json': partial(write, json.dumps(jsondict2)),
                 },
@@ -309,15 +310,17 @@ class TestWalk(unittest.TestCase):
             self.buildtree(root, tree)
             result = list(treewalk(root, sep='|'))
             expected = [
-                ('topdir|valid1.json|topkey1|key1', 'value1'),
-                ('topdir|valid1.json|topkey1|key2|subkey1', 'valuesubkey1'),
-                ('topdir|valid1.json|topkey1|key2|subkey2', 'valuesubkey2'),
-                ('topdir|valid1.json|topkey1|key2|subkey3|subsubkey1', 'valuesubsubkey1'),
-                ('topdir|valid1.json|topkey1|num1', 123),
-                ('topdir|valid2.json|topkey2|array1', ['a', 'b', 'c']),
-                ('topdir|valid2.json|topkey2|key1', 'value1'),
-                ('topdir|valid2.json|topkey2|key2|subkey2', 'valuesubkey2'),
-                ('topdir|valid2.json|topkey2|key2|subkey3|subsubkey1', 'valuesubsubkey1'),
+                ('topdir|invalid.json|', None, True),
+                ('topdir|empty.json|', None, True),
+                ('topdir|valid1.json|topkey1|key1', 'value1', False),
+                ('topdir|valid1.json|topkey1|key2|subkey1', 'valuesubkey1', False),
+                ('topdir|valid1.json|topkey1|key2|subkey2', 'valuesubkey2', False),
+                ('topdir|valid1.json|topkey1|key2|subkey3|subsubkey1', 'valuesubsubkey1', False),
+                ('topdir|valid1.json|topkey1|num1', 123, False),
+                ('topdir|valid2.json|topkey2|array1', ['a', 'b', 'c'], False),
+                ('topdir|valid2.json|topkey2|key1', 'value1', False),
+                ('topdir|valid2.json|topkey2|key2|subkey2', 'valuesubkey2', False),
+                ('topdir|valid2.json|topkey2|key2|subkey3|subsubkey1', 'valuesubsubkey1', False),
             ]
             self.maxDiff = 4096  # pylint: disable=invalid-name
             self.assertCountEqual(result, expected)

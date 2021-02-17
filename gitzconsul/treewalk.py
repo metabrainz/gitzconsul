@@ -108,13 +108,14 @@ def flatten_json_keys(jsondict, root=None, sep='/'):
 def treewalk(root, sep='/'):
     """Parse a tree"""
     for path in walk(root):
+        pathkey = filepath2key(path, root, sep=sep)
+        if not pathkey:
+            continue
         try:
             jsondict = readjsonfile(path)
-            pathkey = filepath2key(path, root, sep=sep)
-            if not pathkey:
-                continue
             for key, value in flatten_json_keys(jsondict, sep=sep):
-                yield pathkey + sep + key, value
+                yield pathkey + sep + key, value, False
         except InvalidJsonFileError as exc:
             log.error(exc)
-            pass
+            # last field marks an error reading json file
+            yield pathkey + sep, None, True
