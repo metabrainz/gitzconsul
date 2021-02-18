@@ -61,6 +61,7 @@ def runcmd(args, cwd=None):
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        check=False,
         timeout=120   # safer, in case a command is stuck
     )
 
