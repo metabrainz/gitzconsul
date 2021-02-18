@@ -37,7 +37,35 @@ class SyncKVException(Exception):
     """SyncKVException"""
 
 
+class SyncKVChanges:
+    """Hold required changes to sync consul with local directory"""
+
+    def __init__(self, num_dir_keys=0, num_consul_keys=0):
+        self.to_add = []
+        self.to_modify = []
+        self.to_delete = []
+        self.num_dir_keys = num_dir_keys
+        self.num_consul_keys = num_consul_keys
+
+    @property
+    def needed(self):
+        """Returns True if changes are needed"""
+        return self.to_add or self.to_modify or self.to_delete
+
+    @property
+    def counts(self):
+        """Returns a dict with counts for each change"""
+        return {
+            'add': len(self.to_add),
+            'mod': len(self.to_modify),
+            'del': len(self.to_delete),
+            'consul': self.num_consul_keys,
+            'dir': self.num_dir_keys,
+        }
+
+
 class SyncKV:
+    changes = None
 
     """Sync local directory with consul kv"""
     def __init__(self, root, name, consul_connection):
@@ -66,10 +94,7 @@ class SyncKV:
                                                   self.topkey))
         log.debug("kv items in consul: %r", known_kv_items)
         known_kv_keys = set(known_kv_items)
-        self.num_consul_keys = len(known_kv_items)
-        self.num_dir_keys = 0
-        self.to_add = []
-        self.to_modify = []
+        self.changes = SyncKVChanges(num_consul_keys=len(known_kv_items))
         for raw_key, value, error in treewalk(self.root):
             key = self.topkey + raw_key
             if error:
@@ -80,59 +105,55 @@ class SyncKV:
                 continue
             value = str(value)  # all values are stored as strings
             if key not in known_kv_keys:
-                self.to_add.append((key, value))
+                self.changes.to_add.append((key, value))
             else:
                 new_value, idx = known_kv_items[key]
                 if value != new_value:
-                    self.to_modify.append((key, value, idx))
+                    self.changes.to_modify.append((key, value, idx))
                 del known_kv_items[key]
-            self.num_dir_keys += 1
-        self.to_delete = [(key, value[1]) for key, value
-                          in known_kv_items.items()]
+            self.changes.num_dir_keys += 1
+        self.changes.to_delete = [(key, value[1]) for key, value in known_kv_items.items()]
         self.kv_sync()
 
     def kv_sync(self):
-        num_add = len(self.to_add)
-        num_del = len(self.to_delete)
-        num_mod = len(self.to_modify)
-        if not (num_add + num_del + num_mod):
+        """Count changes and sent them to consul if needed"""
+        if not self.changes.needed:
             return
-        log.info("Consul: %d Dir: %d Modified: %d Added: %d Deleted: %d" % (
-                 self.num_consul_keys, self.num_dir_keys, num_mod, num_add,
-                 num_del))
-        if num_mod:
-            self.kv_modify()
-        if num_add:
-            self.kv_add()
-        if num_del:
-            self.kv_delete()
+        log.info("Consul: {consul} Dir: {dir} Modified: {mod} Added: {add} Deleted: {del}".format(
+            **self.changes.counts))
+        self.kv_modify()
+        self.kv_add()
+        self.kv_delete()
 
     def kv_modify(self):
         """Update modified keys/values"""
-        log.debug("to_modify: %r" % self.to_modify)
-        with ConsulTransaction(self.consul_connection) as txn:
-            for key, value, idx in self.to_modify:
-                txn.kv_cas(key, value, idx)
-            for results, errors in txn.execute():
-                if errors:
-                    log.error(errors)
+        if self.changes.to_modify:
+            log.debug("to_modify: %r", self.changes.to_modify)
+            with ConsulTransaction(self.consul_connection) as txn:
+                for key, value, idx in self.changes.to_modify:
+                    txn.kv_cas(key, value, idx)
+                for _results, errors in txn.execute():
+                    if errors:
+                        log.error(errors)
 
     def kv_add(self):
         """Add new keys/values"""
-        log.debug("to_add: %r" % self.to_add)
-        with ConsulTransaction(self.consul_connection) as txn:
-            for key, value in self.to_add:
-                txn.kv_cas(key, value, 0)
-            for results, errors in txn.execute():
-                if errors:
-                    log.error(errors)
+        if self.changes.to_add:
+            log.debug("to_add: %r", self.changes.to_add)
+            with ConsulTransaction(self.consul_connection) as txn:
+                for key, value in self.changes.to_add:
+                    txn.kv_cas(key, value, 0)
+                for _results, errors in txn.execute():
+                    if errors:
+                        log.error(errors)
 
     def kv_delete(self):
         """Delete keys/values"""
-        log.debug("to_delete: %r" % self.to_delete)
-        with ConsulTransaction(self.consul_connection) as txn:
-            for key, idx in self.to_delete:
-                txn.kv_delete_cas(key, idx)
-            for results, errors in txn.execute():
-                if errors:
-                    log.error(errors)
+        if self.changes.to_delete:
+            log.debug("to_delete: %r", self.changes.to_delete)
+            with ConsulTransaction(self.consul_connection) as txn:
+                for key, idx in self.changes.to_delete:
+                    txn.kv_delete_cas(key, idx)
+                for _results, errors in txn.execute():
+                    if errors:
+                        log.error(errors)
