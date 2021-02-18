@@ -55,6 +55,7 @@ POSSIBLE_LEVELS = (
 
 
 def runcmd(args, cwd=None):
+    """subprocess.run() wrapper"""
     return subprocess.run(
         args,
         cwd=cwd,
@@ -65,6 +66,7 @@ def runcmd(args, cwd=None):
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
+    """Initialize local directory with remote git repository"""
     # check if local repo exists
     path = Path(target_dir)
     if not path.is_absolute():
@@ -114,6 +116,7 @@ def init_git_repo(target_dir, git_remote, git_ref):
 
 
 def get_local_commit_id(path):
+    """Get current commit id from local directory"""
     result = runcmd(['git', 'rev-parse', 'gitzconsul'], cwd=path)
     if result.returncode:
         log.error(result)
@@ -123,6 +126,7 @@ def get_local_commit_id(path):
 
 
 def get_remote_commit_id(path, git_ref):
+    """Get last commit id from git remote repository"""
     result = runcmd(['git', 'ls-remote', '--exit-code', 'origin', git_ref], cwd=path)
     if result.returncode:
         log.error(result)
@@ -131,6 +135,7 @@ def get_remote_commit_id(path, git_ref):
 
 
 def sync_branch(path, git_ref):
+    """Sync local directory with remote repository"""
     local_commit_id = get_local_commit_id(path)
     if not local_commit_id:
         return False

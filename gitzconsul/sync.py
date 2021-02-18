@@ -39,7 +39,9 @@ class SyncKVException(Exception):
 
 class SyncKV:
 
+    """Sync local directory with consul kv"""
     def __init__(self, root, name, consul_connection):
+        """Init SyncKV Object"""
         if not isinstance(root, Path):
             root = Path(root)
         if not root.is_dir():
@@ -53,7 +55,8 @@ class SyncKV:
         self.consul_connection = consul_connection
         self.topkey = self.name + '/'
 
-    def do(self):
+    def do(self):   # pylint: disable=invalid-name
+        """Do the sync"""
         log.info("Syncing consul @%s (%s) with %s" % (
                     self.consul_connection,
                     self.topkey,
@@ -106,6 +109,7 @@ class SyncKV:
             self.kv_delete()
 
     def kv_modify(self):
+        """Update modified keys/values"""
         log.debug("to_modify: %r" % self.to_modify)
         with ConsulTransaction(self.consul_connection) as txn:
             for key, value, idx in self.to_modify:
@@ -115,6 +119,7 @@ class SyncKV:
                     log.error(errors)
 
     def kv_add(self):
+        """Add new keys/values"""
         log.debug("to_add: %r" % self.to_add)
         with ConsulTransaction(self.consul_connection) as txn:
             for key, value in self.to_add:
@@ -124,6 +129,7 @@ class SyncKV:
                     log.error(errors)
 
     def kv_delete(self):
+        """Delete keys/values"""
         log.debug("to_delete: %r" % self.to_delete)
         with ConsulTransaction(self.consul_connection) as txn:
             for key, idx in self.to_delete:
