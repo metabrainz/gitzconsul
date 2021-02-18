@@ -70,26 +70,26 @@ def init_git_repo(target_dir, git_remote, git_ref):
     # check if local repo exists
     path = Path(target_dir)
     if not path.is_absolute():
-        log.error("{} isn't an absolute path".format(path))
+        log.error("<%s> isn't an absolute path", path)
         return False
     try:
         path.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
         if not path.is_dir():
-            log.error("{} isn't a directory".format(path))
+            log.error("<%s> isn't a directory", path)
             return False
     else:
-        log.info("{} directory was created".format(path))
+        log.info("<%s> directory was created", path)
 
-    log.info("Target directory: {}".format(path))
+    log.info("Target directory: %s", path)
 
     result = runcmd(['git', 'ls-remote', git_remote, git_ref])
     if result.returncode:
-        log.error("Cannot find git remote repo: {} {}".format(git_remote,
-                                                              git_ref))
+        log.error(
+            "Cannot find git remote repo: %s ref=%s", git_remote, git_ref)
         log.error(result.stderr)
         return False
-    log.info("Remote repository: {} ref={}".format(git_remote, git_ref))
+    log.info("Remote repository: %s ref=%s", git_remote, git_ref)
 
     # clone if needed
     result = runcmd(['git', 'rev-parse', git_ref], cwd=path)
@@ -97,20 +97,19 @@ def init_git_repo(target_dir, git_remote, git_ref):
         log.info("Cloning repo...")
         result = runcmd(['git', 'clone', git_remote, path], cwd=path)
         if result.returncode:
-            log.error("Failed to clone {}: {}".format(git_remote,
-                                                      result.stderr))
+            log.error("Failed to clone %s: %s", git_remote, result.stderr)
             return False
 
     # create our own branch, and set it to proper ref
     result = runcmd(['git', 'checkout', '-B', 'gitzconsul', git_ref], cwd=path)
     if result.returncode:
-        log.error("Failed to checkout {}: {}".format(git_ref, result.stderr))
+        log.error("Failed to checkout %s: %s", git_ref, result.stderr)
         return False
 
     commit_id = get_local_commit_id(path)
     if not commit_id:
         return False
-    log.info("Local commit id: {}".format(commit_id))
+    log.info("Local commit id: %s", commit_id)
 
     return path
 
@@ -145,8 +144,8 @@ def sync_branch(path, git_ref):
         return False
 
     if local_commit_id != remote_commit_id:
-        log.info("Resync needed: local {} != {} remote".format(
-            local_commit_id, remote_commit_id))
+        log.info(
+            "Resync needed: local %s != %s remote", local_commit_id, remote_commit_id)
 
         result = runcmd(['git', 'fetch', 'origin', git_ref], cwd=path)
         if result.returncode:
@@ -161,7 +160,7 @@ def sync_branch(path, git_ref):
         commit_id = get_local_commit_id(path)
         if not commit_id:
             return False
-        log.info("Synced to commit id: {}".format(commit_id))
+        log.info("Synced to commit id: %s", commit_id)
 
     return False
 
@@ -254,7 +253,7 @@ def main(**options):
     context = Context(options)
     delay = context.options['delay']
 
-    log.info("Options: %r" % context.options)
+    log.info("Options: %r", context.options)
     repo_path = None
     git_ref = context.options['git_ref']
     git_url = context.options['git_url']
@@ -270,7 +269,7 @@ def main(**options):
         # no remote repository
         repo_path = Path(context.options['target_directory'])
         if not repo_path.is_dir():
-            log.error("Target {} isn't a directory".format(repo_path))
+            log.error("Target %s isn't a directory", repo_path)
             sys.exit(1)
 
     root_directory = Path(context.options['root_directory'])

@@ -116,6 +116,6 @@ def treewalk(root, sep='/'):
             for key, value in flatten_json_keys(jsondict, sep=sep):
                 yield pathkey + sep + key, value, False
         except InvalidJsonFileError as exc:
-            log.error(exc)
+            log.error("%s", exc)
             # last field marks an error reading json file
             yield pathkey + sep, None, True

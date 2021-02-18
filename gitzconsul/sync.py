@@ -57,15 +57,14 @@ class SyncKV:
 
     def do(self):   # pylint: disable=invalid-name
         """Do the sync"""
-        log.info("Syncing consul @%s (%s) with %s" % (
-                    self.consul_connection,
-                    self.topkey,
-                    self.root,
-                    )
-                 )
+        log.info(
+            "Syncing consul @%s (%s) with %s",
+            self.consul_connection,
+            self.topkey,
+            self.root)
         known_kv_items = dict(get_tree_kv_indexes(self.consul_connection,
                                                   self.topkey))
-        log.debug("kv items in consul: %r" % known_kv_items)
+        log.debug("kv items in consul: %r", known_kv_items)
         known_kv_keys = set(known_kv_items)
         self.num_consul_keys = len(known_kv_items)
         self.num_dir_keys = 0
