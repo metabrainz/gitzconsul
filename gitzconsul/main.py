@@ -54,6 +54,16 @@ POSSIBLE_LEVELS = (
 )
 
 
+def runcmd(args, cwd=None):
+    return subprocess.run(
+        args,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=120   # safer, in case a command is stuck
+    )
+
+
 def init_git_repo(target_dir, git_remote, git_ref):
     # check if local repo exists
     path = Path(target_dir)
@@ -71,29 +81,26 @@ def init_git_repo(target_dir, git_remote, git_ref):
 
     log.info("Target directory: {}".format(path))
 
-    result = subprocess.run(['git', 'ls-remote', git_remote, git_ref],
-                            capture_output=True)
+    result = runcmd(['git', 'ls-remote', git_remote, git_ref])
     if result.returncode:
         log.error("Cannot find git remote repo: {} {}".format(git_remote,
                                                               git_ref))
+        log.error(result.stderr)
         return False
     log.info("Remote repository: {} ref={}".format(git_remote, git_ref))
 
     # clone if needed
-    result = subprocess.run(['git', 'rev-parse', git_ref], cwd=path,
-                            capture_output=True)
+    result = runcmd(['git', 'rev-parse', git_ref], cwd=path)
     if result.returncode:
         log.info("Cloning repo...")
-        result = subprocess.run(['git', 'clone', git_remote, path],
-                                capture_output=True)
+        result = runcmd(['git', 'clone', git_remote, path], cwd=path)
         if result.returncode:
             log.error("Failed to clone {}: {}".format(git_remote,
                                                       result.stderr))
             return False
 
     # create our own branch, and set it to proper ref
-    result = subprocess.run(['git', 'checkout', '-B', 'gitzconsul', git_ref],
-                            cwd=path, capture_output=True)
+    result = runcmd(['git', 'checkout', '-B', 'gitzconsul', git_ref], cwd=path)
     if result.returncode:
         log.error("Failed to checkout {}: {}".format(git_ref, result.stderr))
         return False
@@ -107,8 +114,7 @@ def init_git_repo(target_dir, git_remote, git_ref):
 
 
 def get_local_commit_id(path):
-    result = subprocess.run(['git', 'rev-parse', 'gitzconsul'], cwd=path,
-                            capture_output=True)
+    result = runcmd(['git', 'rev-parse', 'gitzconsul'], cwd=path)
     if result.returncode:
         log.error(result)
         return False
@@ -117,9 +123,7 @@ def get_local_commit_id(path):
 
 
 def get_remote_commit_id(path, git_ref):
-    result = subprocess.run(['git', 'ls-remote', '--exit-code', 'origin',
-                             git_ref],
-                            cwd=path, capture_output=True)
+    result = runcmd(['git', 'ls-remote', '--exit-code', 'origin', git_ref], cwd=path)
     if result.returncode:
         log.error(result)
         return False
@@ -139,14 +143,12 @@ def sync_branch(path, git_ref):
         log.info("Resync needed: local {} != {} remote".format(
             local_commit_id, remote_commit_id))
 
-        result = subprocess.run(['git', 'fetch', 'origin', git_ref],
-                                cwd=path, capture_output=True)
+        result = runcmd(['git', 'fetch', 'origin', git_ref], cwd=path)
         if result.returncode:
             log.error(result)
             return False
 
-        result = subprocess.run(['git', 'reset', '--hard', 'FETCH_HEAD'],
-                                cwd=path, capture_output=True)
+        result = runcmd(['git', 'reset', '--hard', 'FETCH_HEAD'], cwd=path)
         if result.returncode:
             log.error(result)
             return False
