@@ -104,7 +104,17 @@ class ConsulTransaction:
                                     headers=conn.headers,
                                     timeout=self.TIMEOUT,
                                     )
-        return response.status_code, json.loads(response.content)
+        if response.status_code in (200, 409):
+            resp_json = response.json()
+        else:
+            resp_json = {
+                'Errors': (
+                    response.request.url,
+                    "%d: %s" % (response.status_code,
+                                response.reason)
+                )
+            }
+        return response.status_code, resp_json
 
     def __enter__(self):
         return self
