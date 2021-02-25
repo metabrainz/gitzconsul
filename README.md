@@ -51,8 +51,6 @@ Options:
   --help                          Show this message and exit.
 ```
 
-```
-
 Typical directory structure will be:
 
 ```
