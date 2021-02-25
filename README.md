@@ -20,6 +20,12 @@ poetry install
 gitzconsul --help
 ```
 
+## Dependencies
+
+- `git` command
+- python >= 3.6
+- python3 `requests` and `click` modules (see `pyproject.toml`)
+
 ## Usage
 
 ```
@@ -95,7 +101,7 @@ curl http://localhost:8500/v1/kv/mytopkey?keys
 - Files not ending with `.json` or unparseable json files are ignored.
 - Directory specified by `--root` isn't prepended to keys and any content outside of it is ignored.
 - JSON file names are used as keys (it keeps the extension)
-- If a previously parsed json file becomes unparseable, keys related to this this are left untouched.
+- If a previously parsed json file becomes unparseable, keys related to it are left untouched.
 
 
 ## Docker
