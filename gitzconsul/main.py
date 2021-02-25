@@ -53,17 +53,33 @@ POSSIBLE_LEVELS = (
     'DEBUG',
 )
 
+WORKING_BRANCH = 'gitzconsul'
 
-def runcmd(args, cwd=None):
-    """subprocess.run() wrapper"""
-    return subprocess.run(
+
+class RunCmdError(Exception):
+    """Raises whenever rumcmd() returned with non-zero exit code"""
+
+
+def runcmd(args, cwd=None, exit_code=False, timeout=120):
+    """subprocess.run() wrapper
+        It returns decoded stdout by default
+        It raises RunCmdError if command exits with non-zero exit code, with stderr output as message
+        If exit_code is True, it just returns command exit code
+    """
+    result = subprocess.run(
         args,
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
-        timeout=120   # safer, in case a command is stuck
+        timeout=timeout  # safer, in case a command is stuck
     )
+    if exit_code:
+        return result.returncode
+    if result.returncode:
+        raise RunCmdError(result.stderr.decode('utf-8').strip())
+
+    return result.stdout.decode('utf-8').strip()
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
@@ -71,99 +87,78 @@ def init_git_repo(target_dir, git_remote, git_ref):
     # check if local repo exists
     path = Path(target_dir)
     if not path.is_absolute():
-        log.error("<%s> isn't an absolute path", path)
+        log.error("%s isn't an absolute path", path)
         return False
     try:
         path.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
         if not path.is_dir():
-            log.error("<%s> isn't a directory", path)
+            log.error("%s isn't a directory", path)
             return False
     else:
-        log.info("<%s> directory was created", path)
+        log.info("%s directory was created", path)
 
     log.info("Target directory: %s", path)
 
-    result = runcmd(['git', 'ls-remote', git_remote, git_ref])
-    if result.returncode:
-        log.error(
-            "Cannot find git remote repo: %s ref=%s", git_remote, git_ref)
-        log.error(result.stderr)
+    try:
+        runcmd(['git', 'ls-remote', git_remote, git_ref])
+        log.info("Remote repository: %s ref=%s", git_remote, git_ref)
+
+        # clone if needed
+        if not is_a_git_repository(path):
+            log.info("Cloning repo...")
+            runcmd(['git', 'clone', git_remote, path], cwd=path)
+
+        # create our own branch, and set it to proper ref
+        runcmd(['git', 'checkout', '-B', WORKING_BRANCH, git_ref], cwd=path)
+
+        log.info("Local commit id: %s", get_local_commit_id(path))
+        return True
+    except RunCmdError as exc:
+        log.error("Failed to init repo path=%s remote=%s ref=%s: %s",
+                  path, git_remote, git_ref, exc)
         return False
-    log.info("Remote repository: %s ref=%s", git_remote, git_ref)
-
-    # clone if needed
-    result = runcmd(['git', 'rev-parse', git_ref], cwd=path)
-    if result.returncode:
-        log.info("Cloning repo...")
-        result = runcmd(['git', 'clone', git_remote, path], cwd=path)
-        if result.returncode:
-            log.error("Failed to clone %s: %s", git_remote, result.stderr)
-            return False
-
-    # create our own branch, and set it to proper ref
-    result = runcmd(['git', 'checkout', '-B', 'gitzconsul', git_ref], cwd=path)
-    if result.returncode:
-        log.error("Failed to checkout %s: %s", git_ref, result.stderr)
-        return False
-
-    commit_id = get_local_commit_id(path)
-    if not commit_id:
-        return False
-    log.info("Local commit id: %s", commit_id)
-
-    return path
 
 
 def get_local_commit_id(path):
     """Get current commit id from local directory"""
-    result = runcmd(['git', 'rev-parse', 'gitzconsul'], cwd=path)
-    if result.returncode:
-        log.error(result)
-        return False
-
-    return result.stdout.decode('utf-8').strip()
+    return runcmd(['git', 'rev-parse', WORKING_BRANCH], cwd=path)
 
 
 def get_remote_commit_id(path, git_ref):
     """Get last commit id from git remote repository"""
-    result = runcmd(['git', 'ls-remote', '--exit-code', 'origin', git_ref], cwd=path)
-    if result.returncode:
-        log.error(result)
-        return False
-    return result.stdout.decode('utf-8').strip().split()[0]
+    return runcmd(['git', 'ls-remote', '--exit-code', 'origin', git_ref], cwd=path).split()[0]
 
 
-def sync_branch(path, git_ref):
+def is_a_git_repository(path):
+    """Check if path is a git repo, returns True if it is"""
+    return runcmd(['git', 'rev-parse', '-is-inside-work-tree'], cwd=path, exit_code=True) == 0
+
+
+class SyncWithRemoteError(Exception):
+    """Raised whenever sync_with_remote() fails"""
+
+
+def sync_with_remote(path, git_ref):
     """Sync local directory with remote repository"""
-    local_commit_id = get_local_commit_id(path)
-    if not local_commit_id:
-        return False
-
-    remote_commit_id = get_remote_commit_id(path, git_ref)
-    if not remote_commit_id:
-        return False
+    try:
+        local_commit_id = get_local_commit_id(path)
+        remote_commit_id = get_remote_commit_id(path, git_ref)
+    except RunCmdError as exc:
+        raise SyncWithRemoteError("Couldn't read local or remote commit ids: %s" % exc) from exc
 
     if local_commit_id != remote_commit_id:
         log.info(
-            "Resync needed: local %s != %s remote", local_commit_id, remote_commit_id)
+            "Resync needed: local %s != remote %s", local_commit_id, remote_commit_id)
 
-        result = runcmd(['git', 'fetch', 'origin', git_ref], cwd=path)
-        if result.returncode:
-            log.error(result)
-            return False
+        try:
+            runcmd(['git', 'fetch', 'origin', git_ref], cwd=path)
+            runcmd(['git', 'reset', '--hard', 'FETCH_HEAD'], cwd=path)
+            commit_id = get_local_commit_id(path)
+        except RunCmdError as exc:
+            raise SyncWithRemoteError("Couldn't fetch from remote: %s" % exc) from exc
 
-        result = runcmd(['git', 'reset', '--hard', 'FETCH_HEAD'], cwd=path)
-        if result.returncode:
-            log.error(result)
-            return False
-
-        commit_id = get_local_commit_id(path)
-        if not commit_id:
-            return False
         log.info("Synced to commit id: %s", commit_id)
-
-    return False
 
 
 @click.command()
@@ -261,17 +256,13 @@ def main(**options):
     repo_path = None
     git_ref = context.options['git_ref']
     git_url = context.options['git_url']
+    repo_path = Path(context.options['directory']).resolve()
+    log.info("Directory: %s", repo_path)
     if git_url:
-        repo_path = init_git_repo(
-            context.options['directory'],
-            git_url,
-            git_ref
-        )
-        if not repo_path:
+        if not init_git_repo(repo_path, git_url, git_ref):
             sys.exit(1)
     else:
         # no remote repository
-        repo_path = Path(context.options['directory'])
         if not repo_path.is_dir():
             log.error("%s isn't a directory", repo_path)
             sys.exit(1)
@@ -281,13 +272,15 @@ def main(**options):
         log.error("%s must be relative to %s", root_directory, repo_path)
         sys.exit(1)
 
-    abs_root_directory = repo_path.joinpath(root_directory)
+    abs_root_directory = repo_path.joinpath(root_directory).resolve()
+    if not abs_root_directory.is_dir():
+        log.error("Not a directory: %s", abs_root_directory)
+        sys.exit(1)
     while not context.kill_now:
         try:
-            if repo_path:
-                ret = sync_branch(repo_path, git_ref)
-                if ret:
-                    log.error("Git remote repo sync error")
+            if git_url and is_a_git_repository(repo_path):
+                log.info("Fetching from remote %s ref=%s repo=%s", git_url, git_ref, repo_path)
+                sync_with_remote(repo_path, git_ref)
             consul_connection = ConsulConnection(
                 context.options['consul_url'],
                 data_center=context.options['consul_datacenter'],
@@ -296,10 +289,16 @@ def main(**options):
             )
             sync = SyncKV(abs_root_directory,
                           context.options['consul_key'], consul_connection)
+            log.info(
+                "Syncing consul @%s (%s) with %s",
+                sync.consul_connection,
+                sync.topkey,
+                sync.root)
             sync.do()
         except Exception as exc:  # pylint: disable=broad-except
             log.error(exc)
-            log.error(traceback.format_exc())
+            if context.options['debug']:
+                log.debug(traceback.format_exc())
         finally:
             if not context.kill_now:
                 log.debug("sleeping %d second(s)...", interval)
