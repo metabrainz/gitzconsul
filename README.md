@@ -64,7 +64,7 @@ topdir/
     └── somestuff
 ```
 
-Typical file1.json (and file2.json for this example) would contain something like:
+Typical `file1.json` (and `file2.json` for this example) would contain something like:
 
 ```json
 {
@@ -92,11 +92,10 @@ curl http://localhost:8500/v1/kv/mytopkey?keys
 ]
 ```
 
-Files not ending with `.json` or unparseable json files are ignored.
-Directory specified by `--root` isn't prepended to keys and any content outside of it is ignored.
-JSON file names are used as keys (it keeps the extension)
-
-If a previously parsed json file becomes unparseable, keys related to this this are left untouched.
+- Files not ending with `.json` or unparseable json files are ignored.
+- Directory specified by `--root` isn't prepended to keys and any content outside of it is ignored.
+- JSON file names are used as keys (it keeps the extension)
+- If a previously parsed json file becomes unparseable, keys related to this this are left untouched.
 
 
 ## Docker
