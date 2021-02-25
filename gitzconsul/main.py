@@ -169,14 +169,15 @@ def sync_branch(path, git_ref):
 @click.command()
 @click.option(
     '-r',
-    '--root-directory',
-    help='root directory, relative to target directory',
-    default=""
+    '--root',
+    help='root directory, relative to directory',
+    default="",
+    show_default=True
 )
 @click.option(
-    '-o',
-    '--target-directory',
-    help='target directory, must be absolute path',
+    '-d',
+    '--directory',
+    help='directory, must be absolute path',
     required=True
 )
 @click.option(
@@ -189,12 +190,13 @@ def sync_branch(path, git_ref):
     '-R',
     '--git-ref',
     help='git repository remote ref',
-    default='refs/heads/master'
+    default='refs/heads/master',
+    show_default=True
 )
 @click.option(
-    '-n',
-    '--name',
-    help='top key name',
+    '-k',
+    '--consul-key',
+    help='add keys under this key',
     required=True
 )
 @click.option(
@@ -205,10 +207,11 @@ def sync_branch(path, git_ref):
     show_default=True
 )
 @click.option(
-    '-d',
-    '--delay',
-    help='delay',
+    '-i',
+    '--interval',
+    help='interval in seconds between syncs',
     default=15,
+    show_default=True
 )
 @click.option(
     '-a',
@@ -225,7 +228,7 @@ def sync_branch(path, git_ref):
 @click.option(
     '-T',
     '--consul-token-file',
-    help='consul token file',
+    help='path to file containing consul token',
     default=None,
 )
 @click.option(
@@ -252,7 +255,7 @@ def sync_branch(path, git_ref):
 def main(**options):
     """Register kv values into consul based on git repository content"""
     context = Context(options)
-    delay = context.options['delay']
+    interval = context.options['interval']
 
     log.info("Options: %r", context.options)
     repo_path = None
@@ -260,7 +263,7 @@ def main(**options):
     git_url = context.options['git_url']
     if git_url:
         repo_path = init_git_repo(
-            context.options['target_directory'],
+            context.options['directory'],
             git_url,
             git_ref
         )
@@ -268,14 +271,14 @@ def main(**options):
             sys.exit(1)
     else:
         # no remote repository
-        repo_path = Path(context.options['target_directory'])
+        repo_path = Path(context.options['directory'])
         if not repo_path.is_dir():
-            log.error("Target %s isn't a directory", repo_path)
+            log.error("%s isn't a directory", repo_path)
             sys.exit(1)
 
-    root_directory = Path(context.options['root_directory'])
+    root_directory = Path(context.options['root'])
     if root_directory.is_absolute():
-        log.error("root directory must be relative to target directory")
+        log.error("%s must be relative to %s", root_directory, repo_path)
         sys.exit(1)
 
     abs_root_directory = repo_path.joinpath(root_directory)
@@ -292,15 +295,15 @@ def main(**options):
                 acl_token_file=context.options['consul_token_file']
             )
             sync = SyncKV(abs_root_directory,
-                          context.options['name'], consul_connection)
+                          context.options['consul_key'], consul_connection)
             sync.do()
         except Exception as exc:  # pylint: disable=broad-except
             log.error(exc)
             log.error(traceback.format_exc())
         finally:
             if not context.kill_now:
-                log.debug("sleeping %d second(s)...", delay)
-                for _unused in range(0, delay):
+                log.debug("sleeping %d second(s)...", interval)
+                for _unused in range(0, interval):
                     if not context.kill_now:
                         sleep(1)
 
