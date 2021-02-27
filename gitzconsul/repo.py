@@ -48,12 +48,20 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120):
         check=False,
         timeout=timeout  # safer, in case a command is stuck
     )
+    log.debug("cmd: %s -> %d", " ".join(args), exit_code)
     if exit_code:
         return result.returncode
-    if result.returncode:
-        raise RunCmdError(result.stderr.decode('utf-8').strip())
 
-    return result.stdout.decode('utf-8').strip()
+    stderr = result.stderr.decode('utf-8').strip()
+    if stderr:
+        log.debug("stderr: %s", stderr)
+    if result.returncode:
+        raise RunCmdError(stderr)
+
+    stdout = result.stdout.decode('utf-8').strip()
+    if stdout:
+        log.debug("stdout: %s", stdout)
+    return stdout
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
