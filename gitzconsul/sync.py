@@ -87,7 +87,7 @@ class SyncKV:
         """Do the sync"""
         known_kv_items = dict(get_tree_kv_indexes(self.consul_connection,
                                                   self.topkey))
-        log.debug("kv items in consul: %r", known_kv_items)
+        log.debug("number of kv items in consul: %d", len(known_kv_items))
         known_kv_keys = set(known_kv_items)
         self.changes = SyncKVChanges(num_consul_keys=len(known_kv_items))
         for raw_key, value, error in treewalk(self.root):
