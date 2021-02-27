@@ -114,7 +114,13 @@ def get_remote_commit_id(path, git_ref):
 
 def is_a_git_repository(path):
     """Check if path is a git repo, returns True if it is"""
-    return runcmd(['git', 'rev-parse', '-is-inside-work-tree'], cwd=path, exit_code=True) == 0
+    path = Path(path).resolve()
+    try:
+        gitpath = runcmd(['git', 'rev-parse', '--git-dir'], cwd=path)
+        gitpath = Path(path).joinpath(gitpath).resolve().parent
+    except RunCmdError:
+        return False
+    return path == gitpath
 
 
 class SyncWithRemoteError(Exception):
