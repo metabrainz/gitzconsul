@@ -89,7 +89,7 @@ def init_git_repo(target_dir, git_remote, git_ref):
         # clone if needed
         if not is_a_git_repository(path):
             log.info("Cloning repo...")
-            runcmd(['git', 'clone', git_remote, path], cwd=path)
+            runcmd(['git', 'clone', git_remote, str(path)], cwd=path)
 
         # create our own branch, and set it to proper ref
         runcmd(['git', 'checkout', '-B', WORKING_BRANCH, git_ref], cwd=path)
