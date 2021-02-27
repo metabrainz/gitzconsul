@@ -60,7 +60,7 @@ POSSIBLE_LEVELS = (
 @click.option(
     '-r',
     '--root',
-    help='root directory, relative to directory',
+    help='root directory to read files from, relative to directory',
     default="",
     show_default=True
 )

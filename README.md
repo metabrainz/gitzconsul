@@ -34,8 +34,9 @@ Usage: gitzconsul [OPTIONS]
   Register kv values into consul based on git repository content
 
 Options:
-  -r, --root TEXT                 root directory, relative to directory
-                                  [default: ]
+  -r, --root TEXT                 root directory to read files from, relative
+                                  to directory  [default: ]
+
   -d, --directory TEXT            directory of the repository, will be created
                                   if needed  [required]
 
