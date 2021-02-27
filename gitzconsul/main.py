@@ -167,10 +167,6 @@ def main(**options):
         log.error("%s must be relative to %s", root_directory, repo_path)
         sys.exit(1)
 
-    abs_root_directory = repo_path.joinpath(root_directory).resolve()
-    if not abs_root_directory.is_dir():
-        log.error("Not a directory: %s", abs_root_directory)
-        sys.exit(1)
     while not context.kill_now:
         try:
             if git_url and is_a_git_repository(repo_path):
@@ -182,14 +178,18 @@ def main(**options):
                 acl_token=context.options['consul_token'],
                 acl_token_file=context.options['consul_token_file']
             )
-            sync = SyncKV(abs_root_directory,
-                          context.options['consul_key'], consul_connection)
-            log.info(
-                "Syncing consul @%s (%s) with %s",
-                sync.consul_connection,
-                sync.topkey,
-                sync.root)
-            sync.do()
+            abs_root_directory = repo_path.joinpath(root_directory).resolve()
+            if abs_root_directory.is_dir():
+                sync = SyncKV(abs_root_directory,
+                              context.options['consul_key'], consul_connection)
+                log.info(
+                    "Syncing consul @%s (%s) with %s",
+                    sync.consul_connection,
+                    sync.topkey,
+                    sync.root)
+                sync.do()
+            else:
+                log.error("Not a directory: %s", abs_root_directory)
         except Exception as exc:  # pylint: disable=broad-except
             log.error(exc)
             if context.options['debug']:
