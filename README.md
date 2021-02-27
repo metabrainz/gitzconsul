@@ -36,8 +36,9 @@ Usage: gitzconsul [OPTIONS]
 Options:
   -r, --root TEXT                 root directory, relative to directory
                                   [default: ]
+  -d, --directory TEXT            directory of the repository, will be created
+                                  if needed  [required]
 
-  -d, --directory TEXT            directory, must be absolute path  [required]
   -g, --git-url TEXT              git repository remote url
   -R, --git-ref TEXT              git repository remote ref  [default:
                                   refs/heads/master]

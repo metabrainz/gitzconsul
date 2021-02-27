@@ -67,7 +67,7 @@ POSSIBLE_LEVELS = (
 @click.option(
     '-d',
     '--directory',
-    help='directory, must be absolute path',
+    help='directory of the repository, will be created if needed',
     required=True
 )
 @click.option(
