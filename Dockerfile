@@ -27,7 +27,7 @@ RUN apt-get update \
     ca-certificates \
   # Installing `poetry` package manager:
   # https://github.com/python-poetry/poetry
-  && curl -sSL 'https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py' | python \
+  && curl -sSL 'https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py' | python - \
   && poetry --version \
   # Cleaning cache:
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
