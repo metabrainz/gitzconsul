@@ -98,7 +98,11 @@ class SyncKV:
                         # do not touch kv matching bugged json file
                         del known_kv_items[k]
                 continue
-            value = str(value)  # all values are stored as strings
+            if isinstance(value, bool):
+                # compat with git2consul which stores True/False as true/false strings
+                value = str(value).lower()
+            else:
+                value = str(value)  # all values are stored as strings
             if key not in known_kv_keys:
                 self.changes.to_add.append((key, value))
             else:
