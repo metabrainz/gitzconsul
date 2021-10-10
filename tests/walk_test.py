@@ -277,6 +277,7 @@ class TestWalk(unittest.TestCase):
                     }
                 },
                 "num1": 123,
+                'bool1': True,
             }
         }
         jsondict2 = {
@@ -290,6 +291,7 @@ class TestWalk(unittest.TestCase):
                     }
                 },
                 "array1": ['a', 'b', 'c'],
+                'bool2': False,
             }
         }
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -317,8 +319,10 @@ class TestWalk(unittest.TestCase):
                 ('topdir|valid1.json|topkey1|key2|subkey2', 'valuesubkey2', False),
                 ('topdir|valid1.json|topkey1|key2|subkey3|subsubkey1', 'valuesubsubkey1', False),
                 ('topdir|valid1.json|topkey1|num1', 123, False),
+                ('topdir|valid1.json|topkey1|bool1', True, False),
                 ('topdir|valid2.json|topkey2|array1', ['a', 'b', 'c'], False),
                 ('topdir|valid2.json|topkey2|key1', 'value1', False),
+                ('topdir|valid2.json|topkey2|bool2', False, False),
                 ('topdir|valid2.json|topkey2|key2|subkey2', 'valuesubkey2', False),
                 ('topdir|valid2.json|topkey2|key2|subkey3|subsubkey1', 'valuesubsubkey1', False),
             ]
