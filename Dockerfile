@@ -41,10 +41,12 @@ RUN apt-get update \
   && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
 # install gosu
-ARG GOSU_VERSION=1.12
+ARG GOSU_VERSION=1.14
+ARG GOSU_PATH=/root/.local/bin/gosu
 RUN dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
- && curl --location --output /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" \
- && chmod +x /usr/local/bin/gosu \
+ && echo "Downloading gosu $GOSU_VERSION-$dpkgArch -> $GOSU_PATH" \
+ && curl --location --output "$GOSU_PATH" "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" \
+ && chmod +x "$GOSU_PATH" \
  && gosu nobody true
 
 WORKDIR /code
