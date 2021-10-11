@@ -1,5 +1,12 @@
 FROM python:3.8-slim-buster
 
+LABEL maintainer="Laurent Monin <zas@metabrainz.org>" \
+    org.opencontainers.image.title="gitzconsul: git repository to consul kv" \
+    org.opencontainers.image.description="Clone a git repo containing json files, and keep a consul kv in sync with it (similar to git2consul)" \
+    org.opencontainers.image.authors="Laurent Monin <zas@metabrainz.org>" \
+    org.opencontainers.image.vendor="MetaBrainz Foundation" \
+    org.opencontainers.image.documentation="https://github.com/metabrainz/gitzconsul/blob/main/README.md"
+
 ENV \
   # python:
   PYTHONFAULTHANDLER=1 \
