@@ -32,13 +32,16 @@ RUN apt-get update \
     git \
     openssh-client \
     ca-certificates \
-  # Installing `poetry` package manager:
-  # https://github.com/python-poetry/poetry
-  && curl -sSL 'https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py' | python - \
-  && poetry --version \
   # Cleaning cache:
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip
+
+# Installing `poetry` package manager:
+# https://github.com/python-poetry/poetry
+RUN curl -sSL 'https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py' | python - \
+  && poetry --version
 
 # install gosu
 ARG GOSU_VERSION=1.14
