@@ -41,7 +41,10 @@ RUN dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && gosu nobody true
 
 WORKDIR /code
-COPY . /code/
+COPY .coveragerc .flake8 LICENSE README.md pyproject.toml /code/
+COPY gitzconsul /code/gitzconsul
+COPY tests /code/tests
+RUN ls -lr /code/
 RUN poetry install --no-interaction --no-ansi --no-dev
 
 ARG USER_ID=61000
