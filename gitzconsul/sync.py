@@ -120,39 +120,31 @@ class SyncKV:
             return
         log.info("Consul: {consul} Dir: {dir} Modified: {mod} Added: {add} Deleted: {del}".format(
             **self.changes.counts))
-        self.kv_modify()
-        self.kv_add()
-        self.kv_delete()
+        with ConsulTransaction(self.consul_connection) as txn:
+            self.kv_modify(txn)
+            self.kv_add(txn)
+            self.kv_delete(txn)
+            for _results, errors in txn.execute():
+                if errors:
+                    log.error(errors)
 
-    def kv_modify(self):
+    def kv_modify(self, txn):
         """Update modified keys/values"""
         if self.changes.to_modify:
             log.debug("to_modify: %r", self.changes.to_modify)
-            with ConsulTransaction(self.consul_connection) as txn:
-                for key, value, idx in self.changes.to_modify:
-                    txn.kv_cas(key, value, idx)
-                for _results, errors in txn.execute():
-                    if errors:
-                        log.error(errors)
+            for key, value, idx in self.changes.to_modify:
+                txn.kv_cas(key, value, idx)
 
-    def kv_add(self):
+    def kv_add(self, txn):
         """Add new keys/values"""
         if self.changes.to_add:
             log.debug("to_add: %r", self.changes.to_add)
-            with ConsulTransaction(self.consul_connection) as txn:
-                for key, value in self.changes.to_add:
-                    txn.kv_cas(key, value, 0)
-                for _results, errors in txn.execute():
-                    if errors:
-                        log.error(errors)
+            for key, value in self.changes.to_add:
+                txn.kv_cas(key, value, 0)
 
-    def kv_delete(self):
+    def kv_delete(self, txn):
         """Delete keys/values"""
         if self.changes.to_delete:
             log.debug("to_delete: %r", self.changes.to_delete)
-            with ConsulTransaction(self.consul_connection) as txn:
-                for key, idx in self.changes.to_delete:
-                    txn.kv_delete_cas(key, idx)
-                for _results, errors in txn.execute():
-                    if errors:
-                        log.error(errors)
+            for key, idx in self.changes.to_delete:
+                txn.kv_delete_cas(key, idx)
