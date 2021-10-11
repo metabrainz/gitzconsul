@@ -167,22 +167,28 @@ def main(**options):
         log.error("%s must be relative to %s", root_directory, repo_path)
         sys.exit(1)
 
+    first_run = True
     while not context.kill_now:
         try:
             if git_url and is_a_git_repository(repo_path):
-                log.info("Fetching from remote %s ref=%s repo=%s", git_url, git_ref, repo_path)
+                log.debug("Fetching from remote %s ref=%s repo=%s", git_url, git_ref, repo_path)
                 sync_with_remote(repo_path, git_ref)
-            consul_connection = ConsulConnection(
-                context.options['consul_url'],
-                data_center=context.options['consul_datacenter'],
-                acl_token=context.options['consul_token'],
-                acl_token_file=context.options['consul_token_file']
-            )
             abs_root_directory = repo_path.joinpath(root_directory).resolve()
             if abs_root_directory.is_dir():
+                consul_connection = ConsulConnection(
+                    context.options['consul_url'],
+                    data_center=context.options['consul_datacenter'],
+                    acl_token=context.options['consul_token'],
+                    acl_token_file=context.options['consul_token_file']
+                )
                 sync = SyncKV(abs_root_directory,
                               context.options['consul_key'], consul_connection)
-                log.info(
+                if first_run:
+                    log_func = log.info
+                else:
+                    log_func = log.debug
+                first_run = False
+                log_func(
                     "Syncing consul @%s (%s) with %s",
                     sync.consul_connection,
                     sync.topkey,
