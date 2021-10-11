@@ -53,7 +53,7 @@ WORKDIR /code
 COPY .coveragerc .flake8 LICENSE README.md pyproject.toml /code/
 COPY gitzconsul /code/gitzconsul
 COPY tests /code/tests
-RUN ls -lr /code/
+
 RUN poetry install --no-interaction --no-ansi --no-dev
 
 ARG USER_ID=61000
