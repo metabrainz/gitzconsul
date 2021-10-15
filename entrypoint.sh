@@ -2,8 +2,11 @@
 set -e
 
 # NOTE: $USER_* env vars are passed via Dockerfile ENV
-groupadd --gid "$USER_GROUP_ID" "$USER_GROUP"
-useradd --uid "$USER_ID" --gid "$USER_GROUP" --shell /bin/bash \
+getent group "$USER_GROUP"  >/dev/null 2>&1 || \
+  groupadd --gid "$USER_GROUP_ID" "$USER_GROUP"
+
+id -u "$USER_NAME" >/dev/null 2>&1 || \
+  useradd --uid "$USER_ID" --gid "$USER_GROUP" --shell /bin/bash \
 	--no-log-init --system --create-home --home-dir "$USER_HOME" "$USER_NAME"
 
 mkdir -p "${USER_HOME}/.ssh"
