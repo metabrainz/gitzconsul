@@ -22,6 +22,7 @@
 import logging
 from pathlib import Path
 import subprocess
+from time import sleep
 
 
 log = logging.getLogger('gitzconsul')
@@ -33,35 +34,43 @@ class RunCmdError(Exception):
     """Raises whenever rumcmd() returned with non-zero exit code"""
 
 
-def runcmd(args, cwd=None, exit_code=False, timeout=120):
+def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises RunCmdError if command exits with non-zero exit code,
         with stderr output as message.
         If exit_code is True, it just returns command exit code
     """
-    result = subprocess.run(
-        args,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        timeout=timeout  # safer, in case a command is stuck
-    )
-    log.debug("cmd: %s -> %d", " ".join(args), exit_code)
-    if exit_code:
-        return result.returncode
+    while attempts > 0:
+        try:
+            result = subprocess.run(
+                args,
+                cwd=cwd,
+                capture_output=True,
+                check=False,
+                timeout=timeout  # safer, in case a command is stuck
+            )
+            log.debug("cmd: %s -> %d", " ".join(args), exit_code)
+            if exit_code:
+                return result.returncode
 
-    stderr = result.stderr.decode('utf-8').strip()
-    if stderr:
-        log.debug("stderr: %s", stderr)
-    if result.returncode:
-        raise RunCmdError(stderr)
+            stderr = result.stderr.decode('utf-8').strip()
+            if stderr:
+                log.debug("stderr: %s", stderr)
+            if result.returncode:
+                raise RunCmdError(stderr)
 
-    stdout = result.stdout.decode('utf-8').strip()
-    if stdout:
-        log.debug("stdout: %s", stdout)
-    return stdout
+            stdout = result.stdout.decode('utf-8').strip()
+            if stdout:
+                log.debug("stdout: %s", stdout)
+            return stdout
+        except subprocess.TimeoutExpired as e:
+            attempts -= 1
+            if attempts:
+                log.warn("Sleeping %f seconds, remaining attempts: %d, cmd timeout: %s" % (delay, attempts, e))
+                sleep(delay)
+            else:
+                raise RunCmdError(e)
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
