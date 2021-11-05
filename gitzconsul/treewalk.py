@@ -53,19 +53,18 @@ def readjsonfile(path):
         path = Path(path)
     if not path.exists():
         raise InvalidJsonFileError(
-            "cannot read json from file {}: doesn't exist".format(path)
+            f"cannot read json from file {path}: doesn't exist"
         )
     if not path.is_file():
         # avoid special files like fifo or socket
         raise InvalidJsonFileError(
-            "cannot read json from file {}: unsupported file type".format(path)
+            f"cannot read json from file {path}: unsupported file type"
         )
     try:
-        with path.open() as json_file:
+        with path.open(encoding='utf8') as json_file:
             return json.load(json_file)
     except (OSError, json.decoder.JSONDecodeError) as exc:
-        raise InvalidJsonFileError(
-            "cannot read json from file {}: {}".format(path, exc)) from exc
+        raise InvalidJsonFileError(f"cannot read json from file {path}: {exc}") from exc
 
 
 def filepath2key(path, root, sep="/"):

@@ -27,17 +27,20 @@ import requests
 
 
 class ConsulConnection:
+    """Initialize and store Consul connection parameters"""
+
+    USERAGENT = "gitzconsul"
 
     def __init__(self, url, data_center=None, acl_token=None,
-                 acl_token_file=None, user_agent="gitzconsul"):
+                 acl_token_file=None):
         self.baseurl = url
-        self._params = dict()
+        self._params = {}
 
         if data_center is not None:
             self._params['dc'] = data_center
 
         if acl_token_file:
-            with open(acl_token_file, "r") as tokenfile:
+            with open(acl_token_file, "r", encoding="utf8") as tokenfile:
                 value = tokenfile.read()
                 if value:
                     acl_token = value
@@ -46,7 +49,7 @@ class ConsulConnection:
 
         self.headers = {
             'Content-Type': "application/json",
-            'User-Agent': user_agent,
+            'User-Agent': self.USERAGENT,
             'Accept': "*/*",
             'Cache-Control': "no-cache",
         }
@@ -55,13 +58,15 @@ class ConsulConnection:
 
     @property
     def params(self):
+        """Returns url-encoded paremeters for Consul Connection"""
         return urlencode(self._params)
 
     def __str__(self):
         return self.baseurl
 
 
-class ConsulTransactionOp:
+class ConsulTransactionOp:  # pylint: disable=too-few-public-methods
+    """Consul Transaction operations"""
 
     def __init__(self, operation):
         payload = {
@@ -82,6 +87,8 @@ class ConsulTransactionOp:
 
 
 class ConsulTransaction:
+    """Build and execute Consul Transactions"""
+
     MAX_PER_TRANSACTION = 64
     # https://requests.readthedocs.io/en/master/user/quickstart/#timeouts
     TIMEOUT = 0.5
@@ -94,7 +101,7 @@ class ConsulTransaction:
     def _query(self, payload):
         conn = self._consul_connection
         data = json.dumps(payload)
-        url = "{}/v1/txn".format(conn.baseurl)
+        url = f"{conn.baseurl}/v1/txn"
         params = conn.params
         if params:
             url += '?' + params
@@ -110,8 +117,7 @@ class ConsulTransaction:
             resp_json = {
                 'Errors': (
                     response.request.url,
-                    "%d: %s" % (response.status_code,
-                                response.reason)
+                    f"{response.status_code}: {response.reason}"
                 )
             }
         return response.status_code, resp_json
@@ -123,6 +129,7 @@ class ConsulTransaction:
         return False
 
     def add(self, operation):
+        """Add an operation to the Consul Transaction"""
         self._operations.append(ConsulTransactionOp(operation))
 
     def _execute(self):
@@ -132,6 +139,7 @@ class ConsulTransaction:
             yield code, response, [op.operation for op in chunk]
 
     def execute(self, match_keys=None):
+        """Execute the Consul Transaction"""
         if match_keys is None:
             match_keys = {'Key', 'Value'}
         else:
@@ -157,7 +165,7 @@ class ConsulTransaction:
     # already exist. If the cas value is non-zero, then the key is only set
     # if the index matches the ModifyIndex of that key.
 
-    def kv_set(self, key, value, flags=None):
+    def kv_set(self, key, value, flags=None):  # pylint: disable=unused-argument
         """Sets the Key to the given Value"""
 
         self.add({
@@ -166,7 +174,7 @@ class ConsulTransaction:
             'Value': value,
         })
 
-    def kv_cas(self, key, value, index, flags=None):
+    def kv_cas(self, key, value, index, flags=None):  # pylint: disable=unused-argument
         """Sets, but with CAS semantics"""
 
         self.add({
@@ -176,7 +184,7 @@ class ConsulTransaction:
             'Index': index,
         })
 
-    def kv_lock(self, key, value, session, flags=None):
+    def kv_lock(self, key, value, session, flags=None):  # pylint: disable=unused-argument
         """Lock with the given Session"""
 
         self.add({
@@ -186,7 +194,7 @@ class ConsulTransaction:
             'Session': session,
         })
 
-    def kv_unlock(self, key, value, session, flags=None):
+    def kv_unlock(self, key, value, session, flags=None):  # pylint: disable=unused-argument
         """Unlock with the given Session"""
 
         self.add({
@@ -265,6 +273,7 @@ class ConsulTransaction:
 
 
 def encode_value(value):
+    """Encode the value for Consul (base64 encoding)"""
     if not isinstance(value, bytes):
         value = str(value).encode('utf-8')
     # https://python-consul.readthedocs.io/en/latest/#consul.base.Consul.Txn
@@ -273,13 +282,14 @@ def encode_value(value):
 
 
 def decode_value(value):
+    """Decode the value from Consul (base64 decoding)"""
     if value is not None:
         return b64decode(value).decode('utf-8')
-    else:
-        return ''
+    return ''
 
 
 def encode_key(key):
+    """Encode key"""
     # according to https://github.com/breser/git2consul#json
     # Expanded keys are URI-encoded.
     # The spaces in "you get the picture" are thus converted into %20.
@@ -287,6 +297,7 @@ def encode_key(key):
 
 
 def decode_key(key):
+    """Decode key"""
     return unquote(key)
 
 
@@ -317,6 +328,7 @@ def get_kv(cons, keylist):
 
 
 def get_tree_kv(cons, key):
+    """Return a generator for each KV entries under key"""
     with ConsulTransaction(cons) as txn:
         txn.kv_get_tree(key)
         for result, errors in txn.execute():
@@ -325,6 +337,7 @@ def get_tree_kv(cons, key):
 
 
 def get_tree_kv_indexes(cons, key):
+    """Same as get_tree_kv(), but also append the ModifyIndex"""
     match_keys = {'Key', 'Value', 'ModifyIndex'}
     with ConsulTransaction(cons) as txn:
         txn.kv_get_tree(key)

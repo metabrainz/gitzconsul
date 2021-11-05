@@ -34,7 +34,7 @@ class RunCmdError(Exception):
     """Raises whenever rumcmd() returned with non-zero exit code"""
 
 
-def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):
+def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  # pylint: disable=too-many-arguments
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises RunCmdError if command exits with non-zero exit code,
@@ -64,13 +64,13 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):
             if stdout:
                 log.debug("stdout: %s", stdout)
             return stdout
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired as exc:
             attempts -= 1
             if attempts:
-                log.warn("Sleeping %f seconds, remaining attempts: %d, cmd timeout: %s" % (delay, attempts, e))
+                log.warning("Sleeping %0.1f seconds, remaining attempts: %d, cmd timeout: %s", delay, attempts, exc)
                 sleep(delay)
             else:
-                raise RunCmdError(e)
+                raise RunCmdError(exc) from exc
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
@@ -142,7 +142,7 @@ def sync_with_remote(path, git_ref):
         local_commit_id = get_local_commit_id(path)
         remote_commit_id = get_remote_commit_id(path, git_ref)
     except RunCmdError as exc:
-        raise SyncWithRemoteError("Couldn't read local or remote commit ids: %s" % exc) from exc
+        raise SyncWithRemoteError(f"Couldn't read local or remote commit ids: {exc}") from exc
 
     if local_commit_id != remote_commit_id:
         log.info(
@@ -153,6 +153,6 @@ def sync_with_remote(path, git_ref):
             runcmd(['git', 'reset', '--hard', 'FETCH_HEAD'], cwd=path)
             commit_id = get_local_commit_id(path)
         except RunCmdError as exc:
-            raise SyncWithRemoteError("Couldn't fetch from remote: %s" % exc) from exc
+            raise SyncWithRemoteError(f"Couldn't fetch from remote: {exc}") from exc
 
         log.info("Synced to commit id: %s", commit_id)

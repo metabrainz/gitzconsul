@@ -55,6 +55,8 @@ POSSIBLE_LEVELS = (
     'DEBUG',
 )
 
+# pylint: disable=too-many-branches
+
 
 @click.command()
 @click.option(

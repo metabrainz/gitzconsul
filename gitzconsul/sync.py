@@ -65,9 +65,10 @@ class SyncKVChanges:
 
 
 class SyncKV:
+    """Sync local directory with consul kv"""
+
     changes = None
 
-    """Sync local directory with consul kv"""
     def __init__(self, root, name, consul_connection):
         """Init SyncKV Object"""
         if not isinstance(root, Path):
@@ -118,8 +119,12 @@ class SyncKV:
         """Count changes and sent them to consul if needed"""
         if not self.changes.needed:
             return
-        log.info("Consul: {consul} Dir: {dir} Modified: {mod} Added: {add} Deleted: {del}".format(
-            **self.changes.counts))
+        log.info("Consul: %d Dir: %d Modified: %d Added: %d Deleted: %d",
+                 self.changes.counts['consul'],
+                 self.changes.counts['dir'],
+                 self.changes.counts['mod'],
+                 self.changes.counts['add'],
+                 self.changes.counts['del'])
         with ConsulTransaction(self.consul_connection) as txn:
             self.kv_modify(txn)
             self.kv_add(txn)
