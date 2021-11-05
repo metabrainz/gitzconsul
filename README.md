@@ -108,6 +108,22 @@ curl http://localhost:8500/v1/kv/mytopkey?keys
 
 ## Docker
 
+### Available images
+
+
+Official docker images are available from [Docker Hub](https://hub.docker.com/r/metabrainz/gitzconsul)
+
+```bash
+docker pull metabrainz/gitzconsul
+```
+
+#### Available tags
+
+`latest`: the latest released image
+`vA.B.C`: released versionned image
+`edge`: the last build, upon last commit of the main github branch
+
+
 ### Build Image
 
 ```bash
