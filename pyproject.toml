@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gitzconsul"
-version = "0.1.0"
+version = "0.2.0"
 description = "Bridge betwen git repositories and consul kv, inspired by git2consul"
 authors = ["Laurent Monin <zas@metabrainz.org>"]
 license = "GPL-3.0-or-later"
