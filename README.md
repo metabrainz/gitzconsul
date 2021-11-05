@@ -10,13 +10,7 @@ https://python-poetry.org/docs/#installation
 
 ```bash
 poetry shell
-```
-
-```bash
 poetry install
-```
-
-```bash
 gitzconsul --help
 ```
 
@@ -119,9 +113,9 @@ docker pull metabrainz/gitzconsul
 
 #### Available tags
 
-`latest`: the latest released image
-`vA.B.C`: released versionned image
-`edge`: the last build, upon last commit of the main github branch
+- `latest`: the latest released image
+- `vA.B.C`: released versionned image
+- `edge`: the last build, upon last commit of the main github branch
 
 
 ### Build Image
