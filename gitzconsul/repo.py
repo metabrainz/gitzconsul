@@ -145,8 +145,7 @@ def sync_with_remote(path, git_ref):
         raise SyncWithRemoteError(f"Couldn't read local or remote commit ids: {exc}") from exc
 
     if local_commit_id != remote_commit_id:
-        log.info(
-            "Resync needed: local %s != remote %s", local_commit_id, remote_commit_id)
+        log.debug("Resync needed: local %s != remote %s", local_commit_id, remote_commit_id)
 
         try:
             runcmd(['git', 'fetch', 'origin', git_ref], cwd=path)
