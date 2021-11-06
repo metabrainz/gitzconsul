@@ -64,7 +64,9 @@ def readjsonfile(path):
         with path.open(encoding='utf8') as json_file:
             return json.load(json_file)
     except (OSError, json.decoder.JSONDecodeError) as exc:
-        raise InvalidJsonFileError(f"cannot read json from file {path}: {exc}") from exc
+        raise InvalidJsonFileError(
+            f"cannot read json from file {path}: {exc}"
+        ) from exc
 
 
 def filepath2key(path, root, sep="/"):

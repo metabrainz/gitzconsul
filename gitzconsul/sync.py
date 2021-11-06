@@ -100,7 +100,8 @@ class SyncKV:
                         del known_kv_items[k]
                 continue
             if isinstance(value, bool):
-                # compat with git2consul which stores True/False as true/false strings
+                # compat with git2consul which stores True/False
+                # as true/false strings
                 value = str(value).lower()
             else:
                 value = str(value)  # all values are stored as strings
@@ -112,7 +113,10 @@ class SyncKV:
                     self.changes.to_modify.append((key, value, idx))
                 del known_kv_items[key]
             self.changes.num_dir_keys += 1
-        self.changes.to_delete = [(key, value[1]) for key, value in known_kv_items.items()]
+        self.changes.to_delete = [
+            (key, value[1])
+            for key, value in known_kv_items.items()
+        ]
         self.kv_sync()
 
     def kv_sync(self):
