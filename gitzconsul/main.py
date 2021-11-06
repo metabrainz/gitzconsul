@@ -173,7 +173,8 @@ def main(**options):
     while not context.kill_now:
         try:
             if git_url and is_a_git_repository(repo_path):
-                log.debug("Fetching from remote %s ref=%s repo=%s", git_url, git_ref, repo_path)
+                log.debug("Fetching from remote %s ref=%s repo=%s",
+                          git_url, git_ref, repo_path)
                 sync_with_remote(repo_path, git_ref)
             abs_root_directory = repo_path.joinpath(root_directory).resolve()
             if abs_root_directory.is_dir():
