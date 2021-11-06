@@ -209,7 +209,6 @@ def main(**options):
                 for _unused in range(0, interval):
                     if not context.kill_now:
                         sleep(1)
-                log.info("resuming...")
 
 
 if __name__ == "__main__":
