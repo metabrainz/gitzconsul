@@ -30,6 +30,10 @@ log = logging.getLogger('gitzconsul')
 
 WORKING_BRANCH = 'gitzconsul'
 
+RUNCMD_TIMEOUT = 120
+RUNCMD_ATTEMPTS = 3
+RUNCMD_RETRY_DELAY = 5
+
 
 class RunCmdError(Exception):
     """Raises whenever rumcmd() returned with non-zero exit code"""
@@ -49,8 +53,7 @@ class RunCmdError(Exception):
         return msg
 
 
-def runcmd(cmd, cwd=None, exit_code=False, timeout=120, attempts=3,
-           delay=5):  # pylint: disable=too-many-arguments
+def runcmd(cmd, cwd=None, exit_code=False):
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises RunCmdError if command exits with non-zero exit code,
@@ -61,6 +64,7 @@ def runcmd(cmd, cwd=None, exit_code=False, timeout=120, attempts=3,
     # set LC_ALL to force messages in English
     exec_env['LC_ALL'] = 'C'
 
+    attempts = RUNCMD_ATTEMPTS
     while attempts > 0:
         try:
             result = subprocess.run(
@@ -69,7 +73,7 @@ def runcmd(cmd, cwd=None, exit_code=False, timeout=120, attempts=3,
                 capture_output=True,
                 check=False,
                 env=exec_env,
-                timeout=timeout  # safer, in case a command is stuck
+                timeout=RUNCMD_TIMEOUT  # safer, in case a command is stuck
             )
             log.debug("cmd: %s -> %d", " ".join(cmd), result.returncode)
             if exit_code:
@@ -90,9 +94,9 @@ def runcmd(cmd, cwd=None, exit_code=False, timeout=120, attempts=3,
             if attempts:
                 log.warning(
                     "Sleeping %0.1f seconds, remaining attempts: %d,"
-                    " cmd timeout: %s", delay, attempts, exc
+                    " cmd timeout: %s", RUNCMD_RETRY_DELAY, attempts, exc
                 )
-                sleep(delay)
+                sleep(RUNCMD_RETRY_DELAY)
             else:
                 raise RunCmdError(exc, cmd) from exc
 
