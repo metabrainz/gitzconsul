@@ -34,8 +34,23 @@ WORKING_BRANCH = 'gitzconsul'
 class RunCmdError(Exception):
     """Raises whenever rumcmd() returned with non-zero exit code"""
 
+    def __init__(self, message, cmd, returncode=None):
+        self.message = message
+        self.cmd = cmd
+        self.returncode = returncode
+        super().__init__(self.message)
 
-def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  # pylint: disable=too-many-arguments
+    def __str__(self):
+        msg = f"msg: {self.message}"
+        cmdstr = " ".join(self.cmd)
+        msg += f" cmd: {cmdstr}"
+        if self.returncode is not None:
+            msg += f" code: {self.returncode}"
+        return msg
+
+
+def runcmd(cmd, cwd=None, exit_code=False, timeout=120, attempts=3,
+           delay=5):  # pylint: disable=too-many-arguments
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises RunCmdError if command exits with non-zero exit code,
@@ -49,14 +64,14 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  
     while attempts > 0:
         try:
             result = subprocess.run(
-                args,
+                cmd,
                 cwd=cwd,
                 capture_output=True,
                 check=False,
                 env=exec_env,
                 timeout=timeout  # safer, in case a command is stuck
             )
-            log.debug("cmd: %s -> %d", " ".join(args), exit_code)
+            log.debug("cmd: %s -> %d", " ".join(cmd), result.returncode)
             if exit_code:
                 return result.returncode
 
@@ -64,7 +79,7 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  
             if stderr:
                 log.debug("stderr: %s", stderr)
             if result.returncode:
-                raise RunCmdError(stderr)
+                raise RunCmdError(stderr, cmd, returncode=result.returncode)
 
             stdout = result.stdout.decode('utf-8').strip()
             if stdout:
@@ -73,10 +88,13 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  
         except subprocess.TimeoutExpired as exc:
             attempts -= 1
             if attempts:
-                log.warning("Sleeping %0.1f seconds, remaining attempts: %d, cmd timeout: %s", delay, attempts, exc)
+                log.warning(
+                    "Sleeping %0.1f seconds, remaining attempts: %d,"
+                    " cmd timeout: %s", delay, attempts, exc
+                )
                 sleep(delay)
             else:
-                raise RunCmdError(exc) from exc
+                raise RunCmdError(exc, cmd) from exc
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
@@ -98,44 +116,52 @@ def init_git_repo(target_dir, git_remote, git_ref):
     log.info("Target directory: %s", path)
 
     try:
-        runcmd(['git', 'ls-remote', git_remote, git_ref])
+        cmd = ('git', 'ls-remote', git_remote, git_ref)
+        runcmd(cmd)
         log.info("Remote repository: %s ref=%s", git_remote, git_ref)
 
         # clone if needed
         if not is_a_git_repository(path):
             log.info("Cloning repo...")
-            runcmd(['git', 'clone', git_remote, str(path)], cwd=path)
+            cmd = ('git', 'clone', git_remote, str(path))
+            runcmd(cmd)
 
         # create our own branch, and set it to proper ref
-        runcmd(['git', 'checkout', '-B', WORKING_BRANCH, git_ref], cwd=path)
+        cmd = ('git', 'checkout', '-B', WORKING_BRANCH, git_ref)
+        runcmd(cmd, cwd=path)
 
         log.info("Local commit id: %s", get_local_commit_id(path))
         return True
     except RunCmdError as exc:
-        log.error("Failed to init repo path=%s remote=%s ref=%s: %s",
+        log.error("Failed to init repo path=%s remote=%s ref=%s exc=%s",
                   path, git_remote, git_ref, exc)
         return False
 
 
 def get_local_commit_id(path):
     """Get current commit id from local directory"""
-    return runcmd(['git', 'rev-parse', WORKING_BRANCH], cwd=path)
+    cmd = ('git', 'rev-parse', WORKING_BRANCH)
+    return runcmd(cmd, cwd=path)
 
 
 def get_remote_commit_id(path, git_ref):
     """Get last commit id from git remote repository"""
-    return runcmd(['git', 'ls-remote', '--exit-code', 'origin', git_ref], cwd=path).split()[0]
+    cmd = ('git', 'ls-remote', '--exit-code', 'origin', git_ref)
+    output = runcmd(cmd, cwd=path)
+    return output.split()[0]
 
 
 def is_a_git_repository(path):
     """Check if path is a git repo, returns True if it is"""
-    path = Path(path).resolve()
     try:
-        gitpath = runcmd(['git', 'rev-parse', '--git-dir'], cwd=path)
-        gitpath = Path(path).joinpath(gitpath).resolve().parent
+        path = Path(path).resolve()
+        cmd = ('git', 'rev-parse', '--git-dir')
+        output = runcmd(cmd, cwd=path)
+        gitpath = Path(path).joinpath(output).resolve().parent
+        return path == gitpath
     except RunCmdError:
-        return False
-    return path == gitpath
+        pass
+    return False
 
 
 class SyncWithRemoteError(Exception):
@@ -148,16 +174,25 @@ def sync_with_remote(path, git_ref):
         local_commit_id = get_local_commit_id(path)
         remote_commit_id = get_remote_commit_id(path, git_ref)
     except RunCmdError as exc:
-        raise SyncWithRemoteError(f"Couldn't read local or remote commit ids: {exc}") from exc
+        raise SyncWithRemoteError(
+            f"Couldn't read local or remote commit ids: {exc}"
+        ) from exc
 
     if local_commit_id != remote_commit_id:
-        log.debug("Resync needed: local %s != remote %s", local_commit_id, remote_commit_id)
+        log.debug(
+            "Resync needed: local %s != remote %s",
+            local_commit_id, remote_commit_id
+        )
 
         try:
-            runcmd(['git', 'fetch', 'origin', git_ref], cwd=path)
-            runcmd(['git', 'reset', '--hard', 'FETCH_HEAD'], cwd=path)
+            cmd = ('git', 'fetch', 'origin', git_ref)
+            runcmd(cmd, cwd=path)
+            cmd = ('git', 'reset', '--hard', 'FETCH_HEAD')
+            runcmd(cmd, cwd=path)
             commit_id = get_local_commit_id(path)
         except RunCmdError as exc:
-            raise SyncWithRemoteError(f"Couldn't fetch from remote: {exc}") from exc
+            raise SyncWithRemoteError(
+                f"Couldn't fetch from remote: {exc}"
+            ) from exc
 
         log.info("Synced to commit id: %s", commit_id)
