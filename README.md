@@ -17,7 +17,7 @@ gitzconsul --help
 ## Dependencies
 
 - `git` command
-- python >= 3.6
+- python >= 3.7
 - python3 `requests` and `click` modules (see `pyproject.toml`)
 
 ## Usage
