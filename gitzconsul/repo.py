@@ -20,6 +20,7 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+import os
 from pathlib import Path
 import subprocess
 from time import sleep
@@ -41,6 +42,10 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  
         with stderr output as message.
         If exit_code is True, it just returns command exit code
     """
+    exec_env = os.environ.copy()
+    # set LC_ALL to force messages in English
+    exec_env['LC_ALL'] = 'C'
+
     while attempts > 0:
         try:
             result = subprocess.run(
@@ -48,6 +53,7 @@ def runcmd(args, cwd=None, exit_code=False, timeout=120, attempts=3, delay=5):  
                 cwd=cwd,
                 capture_output=True,
                 check=False,
+                env=exec_env,
                 timeout=timeout  # safer, in case a command is stuck
             )
             log.debug("cmd: %s -> %d", " ".join(args), exit_code)
