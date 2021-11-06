@@ -24,6 +24,7 @@ from gitzconsul.consultxn import (
 
 
 def resp_obj(consul_obj):
+    """Returns a copy of consul_obj with Value sets to None"""
     obj = consul_obj.copy()
     obj['Value'] = None
     return obj
@@ -31,7 +32,7 @@ def resp_obj(consul_obj):
 
 class MockServerRequestHandler(BaseHTTPRequestHandler):
     """Mock to simulate consul server"""
-    kv_store = dict()
+    kv_store = {}
     idx = 0
 
     def do_GET(self):  # pylint: disable=invalid-name
@@ -43,68 +44,89 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
             self.send_response(404, message="not found")
             self.end_headers()
 
+    def _load(self):
+        length = int(self.headers.get('content-length', 0))
+        content = self.rfile.read(length)
+        json_content = json.loads(content)
+        num = len(json_content)
+        return num, json_content
+
+    def _kv_set_cas(self, resp, _errors, _i, operation):
+        op_kv_key = operation['KV']['Key']
+        if op_kv_key in self.kv_store:
+            cur = self.kv_store[op_kv_key]['ModifyIndex']
+            modifyidx = cur + 1
+            createidx = self.kv_store[op_kv_key][
+                'CreateIndex']
+        else:
+            createidx = self.idx
+            modifyidx = self.idx
+        consul_obj = {
+                'LockIndex': 0,
+                'Key': op_kv_key,
+                'Flags': 0,
+                'Value': operation['KV']['Value'],
+                'CreateIndex': createidx,
+                'ModifyIndex': modifyidx,
+            }
+        self.kv_store[op_kv_key] = consul_obj
+        resp.append({
+            'KV': resp_obj(consul_obj)
+        })
+
+    def _kv_get(self, resp, errors, i, operation):
+        op_kv_key = operation['KV']['Key']
+        if op_kv_key in self.kv_store:
+            resp.append({
+                'KV': self.kv_store[op_kv_key]
+            })
+        else:
+            errors.append({
+                'OpIndex': i,
+                'What': f'key "{op_kv_key}" doesn\'t exist'
+            })
+
+    def _kv_get_tree(self, resp, _errors, _i, operation):
+        op_kv_key = operation['KV']['Key']
+        selected = [key for key in self.kv_store
+                    if key.startswith(op_kv_key)]
+        for key in selected:
+            resp.append({
+                'KV': self.kv_store[key]
+            })
+
+    def _kv_delete(self, _resp, _errors, _i, operation):
+        op_kv_key = operation['KV']['Key']
+        if op_kv_key in self.kv_store:
+            del self.kv_store[op_kv_key]
+        # no error is generated if trying to delete an
+        # unexisting key
+
     def do_PUT(self):  # pylint: disable=invalid-name
         """Simulate consul PUT txn"""
         if self.path == '/v1/txn':
-            length = int(self.headers.get('content-length', 0))
-            content = self.rfile.read(length)
-            json_content = json.loads(content)
-            num = len(json_content)
+            num, json_content = self._load()
             if num > 64:
                 self.send_response(
                     413,
-                    message=("Transaction contains too many operations"
-                             " (%d > 64)") % num)
+                    message=("Transaction contains too many operations "
+                             f"({num} > 64)")
+                )
                 self.end_headers()
                 return
             resp = []
             errors = []
             self.idx += 1
-            for i, op in enumerate(json_content):
-                if op['KV']['Verb'] in ('set', 'cas'):
-                    if op['KV']['Key'] in self.kv_store:
-                        cur = self.kv_store[op['KV']['Key']]['ModifyIndex']
-                        modifyidx = cur + 1
-                        createidx = self.kv_store[op['KV']['Key']][
-                            'CreateIndex']
-                    else:
-                        createidx = self.idx
-                        modifyidx = self.idx
-                    consul_obj = {
-                            'LockIndex': 0,
-                            'Key': op['KV']['Key'],
-                            'Flags': 0,
-                            'Value': op['KV']['Value'],
-                            'CreateIndex': createidx,
-                            'ModifyIndex': modifyidx,
-                        }
-                    self.kv_store[op['KV']['Key']] = consul_obj
-                    resp.append({
-                        'KV': resp_obj(consul_obj)
-                    })
-                elif op['KV']['Verb'] == 'get':
-                    if op['KV']['Key'] in self.kv_store:
-                        resp.append({
-                            'KV': self.kv_store[op['KV']['Key']]
-                        })
-                    else:
-                        errors.append(
-                            {'OpIndex': i,
-                             'What': 'key "{}" doesn\'t exist'.format(
-                                 op['KV']['Key'])})
-                elif op['KV']['Verb'] == 'get-tree':
-                    # FIXME: incorrect logic
-                    selected = [key for key in self.kv_store
-                                if key.startswith(op['KV']['Key'])]
-                    for key in selected:
-                        resp.append({
-                            'KV': self.kv_store[key]
-                        })
-                elif op['KV']['Verb'] == 'delete':
-                    if op['KV']['Key'] in self.kv_store:
-                        del self.kv_store[op['KV']['Key']]
-                    # no error is generated if trying to delete an
-                    # unexisting key
+            for i, operation in enumerate(json_content):
+                op_kv_verb = operation['KV']['Verb']
+                if op_kv_verb in {'set', 'cas'}:
+                    self._kv_set_cas(resp, errors, i, operation)
+                elif op_kv_verb == 'get':
+                    self._kv_get(resp, errors, i, operation)
+                elif op_kv_verb == 'get-tree':
+                    self._kv_get_tree(resp, errors, i, operation)
+                elif op_kv_verb == 'delete':
+                    self._kv_delete(resp, errors, i, operation)
             if errors:
                 resp = None
                 code = 409
@@ -141,7 +163,7 @@ def start_mock_server(port):
     loops = 0
     while True:
         try:
-            requests.get("http://localhost:%d/ping" % port, timeout=0.5)
+            requests.get(f"http://localhost:{port}/ping", timeout=0.5)
             break
         except requests.exceptions.ConnectionError:
             pass
@@ -152,6 +174,7 @@ def start_mock_server(port):
 
 
 class TestTxnUtils(unittest.TestCase):
+    """Test class for consul transaction utility methods"""
     def test_chunks(self):
         """test chunks()"""
         numchunks = 10
@@ -186,19 +209,19 @@ class TestConsulTxn(unittest.TestCase):
             port = get_free_port()
             start_mock_server(port)
 
-        self.consul = ConsulConnection('http://localhost:%d' % port)
+        self.consul = ConsulConnection(f'http://localhost:{port}')
 
     def test_consul_set_get_kv(self):
         """test set_kv() and get_kv()"""
         keysvalues = [
-            ('topkey/subkey{}/key {}'.format(i % 8, i),
-             'value '+str(i)) for i in range(0, 80)]
+            (f'topkey/subkey{i%8}/key {i}', f'value {i}') for i in range(0, 80)
+        ]
 
         all_keys = list(dict(keysvalues))
         set_kvs = list(set_kv(self.consul, keysvalues))
         self.assertCountEqual(set_kvs, all_keys)
         retrieved_kvs = dict(get_kv(self.consul, all_keys))
-        self.maxDiff = None
+        self.maxDiff = None  # pylint: disable=invalid-name
         self.assertCountEqual(retrieved_kvs, dict(keysvalues))
 
         prefix = 'topkey/subkey1/'
@@ -219,6 +242,7 @@ class TestConsulTxn(unittest.TestCase):
             for key, idx in key_idx.items():
                 txn.kv_cas(key, "value", idx)
             for results, errors in txn.execute():
+                self.assertIsNotNone(results)
                 self.assertIsNone(errors)
 
         for key, (value, idx) in get_tree_kv_indexes(self.consul, prefix):
@@ -226,10 +250,11 @@ class TestConsulTxn(unittest.TestCase):
             self.assertEqual(value, "value", idx)
 
     def test_consul_get_key_not_found(self):
+        """Test key not found"""
         with ConsulTransaction(self.consul) as txn:
             # we first fill a chunk with valid ops
             for i in range(0, 64):
-                txn.kv_set("known_key%s" % i, i)
+                txn.kv_set(f"known_key{i}", i)
             # we start next chunk with 2 valid ops, but third one should fail
             txn.kv_set("known_key", "666")
             txn.kv_get("known_key")
@@ -251,6 +276,7 @@ class TestConsulTxn(unittest.TestCase):
                 count += 1
 
     def test_consul_delete_key(self):
+        """Test delete key"""
         with ConsulTransaction(self.consul) as txn:
             txn.kv_set("key_to_delete", "xxx")
             txn.kv_get("key_to_delete")
@@ -268,6 +294,7 @@ class TestConsulTxn(unittest.TestCase):
                                  {'Verb': 'get', 'Key': 'key_to_delete'})
 
     def test_consul_set_int(self):
+        """Test set int"""
         with ConsulTransaction(self.consul) as txn:
             txn.kv_set("keyxxx", 666)
             txn.kv_get("keyxxx")
@@ -277,6 +304,7 @@ class TestConsulTxn(unittest.TestCase):
             self.assertEqual(results[1][0]['Value'], '666')
 
     def test_consul_set_empty(self):
+        """Test set empty"""
         with ConsulTransaction(self.consul) as txn:
             txn.kv_set("keyxzx", '')
             txn.kv_get("keyxzx")

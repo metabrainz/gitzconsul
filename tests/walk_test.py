@@ -19,7 +19,7 @@ from gitzconsul.treewalk import (
 
 def write(content, path):
     """write contents to file at path"""
-    path.open('w').write(content)
+    path.open('w', encoding="utf8").write(content)
 
 
 def touch(path):
@@ -56,7 +56,7 @@ class TestWalk(unittest.TestCase):
             elif callable(content):
                 content(root.joinpath(path))
             else:
-                root.joinpath(path).open('w').write(content)
+                root.joinpath(path).open('w', encoding="utf8").write(content)
 
     def test_make_tree(self):
         """Test tree builder"""
@@ -77,12 +77,12 @@ class TestWalk(unittest.TestCase):
             file1path = root.joinpath('file1')
             self.assertTrue(file1path.is_file())
             file2path = root.joinpath('subdir').joinpath('file2')
-            self.assertEqual(file2path.read_text(), 'content2')
+            self.assertEqual(file2path.read_text(encoding='utf8'), 'content2')
             symlink1path = root.joinpath('subdir').joinpath('symlink1')
             self.assertTrue(symlink1path.is_symlink())
-            self.assertEqual(symlink1path.read_text(), 'content2')
+            self.assertEqual(symlink1path.read_text(encoding='utf8'), 'content2')
             file3path = root.joinpath('file3')
-            self.assertEqual(file3path.read_text(), tree['file3'])
+            self.assertEqual(file3path.read_text(encoding='utf8'), tree['file3'])
 
     def test_walk(self):
         """Test walk()"""
@@ -262,7 +262,7 @@ class TestWalk(unittest.TestCase):
             ('weird|(1, 2)', 'tuplekey'),
         ]
         self.assertCountEqual(flatten_json_keys(jsondict, sep='|'), expected)
-        self.assertCountEqual(flatten_json_keys(dict()), [])
+        self.assertCountEqual(flatten_json_keys({}), [])
 
     def test_treewalk(self):
         """test treewalk()"""
