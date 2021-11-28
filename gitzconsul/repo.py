@@ -53,12 +53,11 @@ class RunCmdError(Exception):
         return msg
 
 
-def runcmd(cmd, cwd=None, exit_code=False):
+def runcmd(cmd, cwd=None):
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises RunCmdError if command exits with non-zero exit code,
         with stderr output as message.
-        If exit_code is True, it just returns command exit code
     """
     exec_env = os.environ.copy()
     # set LC_ALL to force messages in English
@@ -76,8 +75,6 @@ def runcmd(cmd, cwd=None, exit_code=False):
                 timeout=RUNCMD_TIMEOUT  # safer, in case a command is stuck
             )
             log.debug("cmd: %s -> %d", " ".join(cmd), result.returncode)
-            if exit_code:
-                return result.returncode
 
             stderr = result.stderr.decode('utf-8').strip()
             if stderr:
