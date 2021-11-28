@@ -118,7 +118,6 @@ def _run(*args, timeout=None, env=None):
         return subprocess.CompletedProcess(process.args, retcode, stdout, stderr)
 
 
-
 def init_git_repo(target_dir, git_remote, git_ref):
     """Initialize local directory with remote git repository"""
     # check if local repo exists
