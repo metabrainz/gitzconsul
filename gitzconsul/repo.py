@@ -22,7 +22,9 @@
 import logging
 import os
 from pathlib import Path
+import signal
 import subprocess
+import sys
 from time import sleep
 
 
@@ -53,13 +55,16 @@ class GitError(Exception):
         return msg
 
 
-def git(*cmd, cwd=None):
+def git(*args, cwd=None):
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises GitError if command exits with non-zero exit code,
         with stderr output as message.
     """
-    cmd = ['git'] + list(cmd)
+    cmd = ['git']
+    if cwd:
+        cmd.extend(['-C', str(cwd)])
+    cmd.extend(args)
     exec_env = os.environ.copy()
     # set LC_ALL to force messages in English
     exec_env['LC_ALL'] = 'C'
@@ -67,11 +72,8 @@ def git(*cmd, cwd=None):
     attempts = RUNCMD_ATTEMPTS
     while attempts > 0:
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=cwd,
-                capture_output=True,
-                check=True,
+            result = _run(
+                *cmd,
                 env=exec_env,
                 timeout=RUNCMD_TIMEOUT  # safer, in case a command is stuck
             )
@@ -97,6 +99,24 @@ def git(*cmd, cwd=None):
                 sleep(RUNCMD_RETRY_DELAY)
             else:
                 raise GitError(exc, cmd) from exc
+
+
+def _run(*args, timeout=None, env=None):
+    """subprocess.Popen() wrapper"""
+    encoded_args = [a.encode('utf-8') for a in args] if sys.platform != 'win32' else args
+    with subprocess.Popen(encoded_args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except Exception:
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            process.kill()
+            process.wait()
+            raise
+        retcode = process.poll()
+        if retcode:
+            raise subprocess.CalledProcessError(retcode, process.args, output=stdout, stderr=stderr)
+        return subprocess.CompletedProcess(process.args, retcode, stdout, stderr)
+
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
