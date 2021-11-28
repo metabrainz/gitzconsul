@@ -59,8 +59,7 @@ def git(*cmd, cwd=None):
         It raises GitError if command exits with non-zero exit code,
         with stderr output as message.
     """
-    cmd = list(cmd)
-    cmd.insert(0, 'git')
+    cmd = ['git'] + list(cmd)
     exec_env = os.environ.copy()
     # set LC_ALL to force messages in English
     exec_env['LC_ALL'] = 'C'
