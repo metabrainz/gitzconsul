@@ -71,22 +71,22 @@ def git(*cmd, cwd=None):
                 cmd,
                 cwd=cwd,
                 capture_output=True,
-                check=False,
+                check=True,
                 env=exec_env,
                 timeout=RUNCMD_TIMEOUT  # safer, in case a command is stuck
             )
             log.debug("cmd: %s -> %d", " ".join(cmd), result.returncode)
 
-            stderr = result.stderr.decode('utf-8').strip()
-            if stderr:
-                log.debug("stderr: %s", stderr)
-            if result.returncode:
-                raise GitError(stderr, cmd, returncode=result.returncode)
-
             stdout = result.stdout.decode('utf-8').strip()
             if stdout:
                 log.debug("stdout: %s", stdout)
             return stdout
+        except subprocess.CalledProcessError as exc:
+            # command failed
+            log.debug('git exit code: %d', exc.returncode)
+            log.debug('stdout: %r', exc.stdout)
+            log.debug('stderr: %r', exc.stderr)
+            raise GitError(exc.stderr.decode('utf-8').strip(), cmd, returncode=exc.returncode) from exc
         except subprocess.TimeoutExpired as exc:
             attempts -= 1
             if attempts:
