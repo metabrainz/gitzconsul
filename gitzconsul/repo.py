@@ -53,7 +53,7 @@ class RunCmdError(Exception):
         return msg
 
 
-def runcmd(cmd, cwd=None):
+def runcmd(*cmd, cwd=None):
     """subprocess.run() wrapper
         It returns decoded stdout by default
         It raises RunCmdError if command exits with non-zero exit code,
@@ -117,19 +117,16 @@ def init_git_repo(target_dir, git_remote, git_ref):
     log.info("Target directory: %s", path)
 
     try:
-        cmd = ('git', 'ls-remote', git_remote, git_ref)
-        runcmd(cmd)
+        runcmd('git', 'ls-remote', git_remote, git_ref)
         log.info("Remote repository: %s ref=%s", git_remote, git_ref)
 
         # clone if needed
         if not is_a_git_repository(path):
             log.info("Cloning repo...")
-            cmd = ('git', 'clone', git_remote, str(path))
-            runcmd(cmd)
+            runcmd('git', 'clone', git_remote, str(path))
 
         # create our own branch, and set it to proper ref
-        cmd = ('git', 'checkout', '-B', WORKING_BRANCH, git_ref)
-        runcmd(cmd, cwd=path)
+        runcmd('git', 'checkout', '-B', WORKING_BRANCH, git_ref, cwd=path)
 
         log.info("Local commit id: %s", get_local_commit_id(path))
         return True
@@ -141,14 +138,12 @@ def init_git_repo(target_dir, git_remote, git_ref):
 
 def get_local_commit_id(path):
     """Get current commit id from local directory"""
-    cmd = ('git', 'rev-parse', WORKING_BRANCH)
-    return runcmd(cmd, cwd=path)
+    return runcmd('git', 'rev-parse', WORKING_BRANCH, cwd=path)
 
 
 def get_remote_commit_id(path, git_ref):
     """Get last commit id from git remote repository"""
-    cmd = ('git', 'ls-remote', '--exit-code', 'origin', git_ref)
-    output = runcmd(cmd, cwd=path)
+    output = runcmd('git', 'ls-remote', '--exit-code', 'origin', git_ref, cwd=path)
     return output.split()[0]
 
 
@@ -156,8 +151,7 @@ def is_a_git_repository(path):
     """Check if path is a git repo, returns True if it is"""
     try:
         path = Path(path).resolve()
-        cmd = ('git', 'rev-parse', '--git-dir')
-        output = runcmd(cmd, cwd=path)
+        output = runcmd('git', 'rev-parse', '--git-dir', cwd=path)
         gitpath = Path(path).joinpath(output).resolve().parent
         return path == gitpath
     except RunCmdError:
@@ -186,10 +180,8 @@ def sync_with_remote(path, git_ref):
         )
 
         try:
-            cmd = ('git', 'fetch', 'origin', git_ref)
-            runcmd(cmd, cwd=path)
-            cmd = ('git', 'reset', '--hard', 'FETCH_HEAD')
-            runcmd(cmd, cwd=path)
+            runcmd('git', 'fetch', 'origin', git_ref, cwd=path)
+            runcmd('git', 'reset', '--hard', 'FETCH_HEAD', cwd=path)
             commit_id = get_local_commit_id(path)
         except RunCmdError as exc:
             raise SyncWithRemoteError(
