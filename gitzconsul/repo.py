@@ -35,7 +35,7 @@ RUNCMD_ATTEMPTS = 3
 RUNCMD_RETRY_DELAY = 5
 
 
-class RunCmdError(Exception):
+class GitError(Exception):
     """Raises whenever rumcmd() returned with non-zero exit code"""
 
     def __init__(self, message, cmd, returncode=None):
@@ -56,7 +56,7 @@ class RunCmdError(Exception):
 def git(*cmd, cwd=None):
     """subprocess.run() wrapper
         It returns decoded stdout by default
-        It raises RunCmdError if command exits with non-zero exit code,
+        It raises GitError if command exits with non-zero exit code,
         with stderr output as message.
     """
     cmd = list(cmd)
@@ -82,7 +82,7 @@ def git(*cmd, cwd=None):
             if stderr:
                 log.debug("stderr: %s", stderr)
             if result.returncode:
-                raise RunCmdError(stderr, cmd, returncode=result.returncode)
+                raise GitError(stderr, cmd, returncode=result.returncode)
 
             stdout = result.stdout.decode('utf-8').strip()
             if stdout:
@@ -97,7 +97,7 @@ def git(*cmd, cwd=None):
                 )
                 sleep(RUNCMD_RETRY_DELAY)
             else:
-                raise RunCmdError(exc, cmd) from exc
+                raise GitError(exc, cmd) from exc
 
 
 def init_git_repo(target_dir, git_remote, git_ref):
@@ -132,7 +132,7 @@ def init_git_repo(target_dir, git_remote, git_ref):
 
         log.info("Local commit id: %s", get_local_commit_id(path))
         return True
-    except RunCmdError as exc:
+    except GitError as exc:
         log.error("Failed to init repo path=%s remote=%s ref=%s exc=%s",
                   path, git_remote, git_ref, exc)
         return False
@@ -156,7 +156,7 @@ def is_a_git_repository(path):
         output = git('rev-parse', '--git-dir', cwd=path)
         gitpath = Path(path).joinpath(output).resolve().parent
         return path == gitpath
-    except RunCmdError:
+    except GitError:
         pass
     return False
 
@@ -170,7 +170,7 @@ def sync_with_remote(path, git_ref):
     try:
         local_commit_id = get_local_commit_id(path)
         remote_commit_id = get_remote_commit_id(path, git_ref)
-    except RunCmdError as exc:
+    except GitError as exc:
         raise SyncWithRemoteError(
             f"Couldn't read local or remote commit ids: {exc}"
         ) from exc
@@ -185,7 +185,7 @@ def sync_with_remote(path, git_ref):
             git('fetch', 'origin', git_ref, cwd=path)
             git('reset', '--hard', 'FETCH_HEAD', cwd=path)
             commit_id = get_local_commit_id(path)
-        except RunCmdError as exc:
+        except GitError as exc:
             raise SyncWithRemoteError(
                 f"Couldn't fetch from remote: {exc}"
             ) from exc
