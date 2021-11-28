@@ -24,6 +24,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+from subprocess import PIPE
 import sys
 from time import sleep
 
@@ -104,7 +105,7 @@ def git(*args, cwd=None):
 def _run(*args, timeout=None, env=None):
     """subprocess.Popen() wrapper"""
     encoded_args = [a.encode('utf-8') for a in args] if sys.platform != 'win32' else args
-    with subprocess.Popen(encoded_args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid) as process:
+    with subprocess.Popen(encoded_args, env=env, stdout=PIPE, stderr=PIPE, start_new_session=True) as process:
         try:
             stdout, stderr = process.communicate(timeout=timeout)
         except Exception:
