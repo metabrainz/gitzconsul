@@ -1,4 +1,4 @@
-FROM python:3.8-slim-buster
+FROM python:3.10-slim-buster
 
 LABEL maintainer="Laurent Monin <zas@metabrainz.org>" \
     org.opencontainers.image.title="gitzconsul: git repository to consul kv" \
@@ -18,7 +18,7 @@ ENV \
   PIP_DISABLE_PIP_VERSION_CHECK=on \
   PIP_DEFAULT_TIMEOUT=100 \
   # poetry:
-  POETRY_VERSION=1.1.11 \
+  POETRY_VERSION=1.4.2 \
   POETRY_NO_INTERACTION=1 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry' \
@@ -38,7 +38,7 @@ RUN apt-get update \
 
 # Installing `poetry` package manager:
 # https://github.com/python-poetry/poetry
-RUN curl -sSL 'https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py' | python - \
+RUN curl -sSL https://install.python-poetry.org | python - \
   && poetry --version
 
 # install gosu
@@ -55,7 +55,7 @@ COPY .coveragerc .flake8 LICENSE README.md pyproject.toml /code/
 COPY gitzconsul /code/gitzconsul
 COPY tests /code/tests
 
-RUN poetry install --no-interaction --no-ansi --no-dev
+RUN poetry install --no-interaction --no-ansi --only main
 
 ARG USER_ID=61000
 ARG USER_GROUP_ID=61000
