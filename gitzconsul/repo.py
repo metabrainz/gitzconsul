@@ -100,6 +100,7 @@ def git(*args, cwd=None):
                 sleep(RUNCMD_RETRY_DELAY)
             else:
                 raise GitError(exc, cmd) from exc
+    return ''
 
 
 def _run(*args, timeout=None, env=None):

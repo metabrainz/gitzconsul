@@ -153,6 +153,10 @@ def get_free_port():
     return port
 
 
+class MockException(Exception):
+    """Mock Server Exception"""
+
+
 def start_mock_server(port):
     """Start the mock server"""
     mock_server = HTTPServer(('localhost', port), MockServerRequestHandler)
@@ -170,7 +174,7 @@ def start_mock_server(port):
         time.sleep(0.3)
         loops += 1
         if loops > 10:
-            raise Exception("Mock server didn't start!")
+            raise MockException("Mock server didn't start!")
 
 
 class TestTxnUtils(unittest.TestCase):
