@@ -42,7 +42,7 @@ RUN curl -sSL 'https://raw.githubusercontent.com/python-poetry/poetry/master/ins
   && poetry --version
 
 # install gosu
-ARG GOSU_VERSION=1.14
+ARG GOSU_VERSION=1.16
 ARG GOSU_PATH=/root/.local/bin/gosu
 RUN dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && echo "Downloading gosu $GOSU_VERSION-$dpkgArch -> $GOSU_PATH" \
