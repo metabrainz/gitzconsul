@@ -49,14 +49,11 @@ class Context:
         if self._sig2name is None:
             # extract signal names from signal module
             # signal.Signals is an enum
-            # https://github.com/PyCQA/pylint/issues/2804
-            # pylint: disable=no-member
             self._sig2name = {s.value: s.name for s in signal.Signals}
 
         name = self._sig2name.get(signum, signum)
         log.info("Received %s signal", name)
 
-    # pylint: disable=unused-argument
     def _ignore_signal(self, signum, frame):
         self._log_signal(signum)
 
@@ -80,7 +77,7 @@ class Context:
             try:
                 filehandler = logging.FileHandler(filename=logfile)
                 handlers.append(filehandler)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 log.warning("Could not open log file: %s", logfile)
 
         logging.basicConfig(

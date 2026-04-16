@@ -71,7 +71,7 @@ class ConsulConnection:
         return self.baseurl
 
 
-class ConsulTransactionOp:  # pylint: disable=too-few-public-methods
+class ConsulTransactionOp:
     """Consul Transaction operations"""
 
     def __init__(self, operation):
@@ -167,7 +167,7 @@ class ConsulTransaction:
     # already exist. If the cas value is non-zero, then the key is only set
     # if the index matches the ModifyIndex of that key.
 
-    def kv_set(self, key, value, flags=None):  # pylint: disable=unused-argument
+    def kv_set(self, key, value, flags=None):
         """Sets the Key to the given Value"""
 
         self.add(
@@ -178,7 +178,7 @@ class ConsulTransaction:
             }
         )
 
-    def kv_cas(self, key, value, index, flags=None):  # pylint: disable=unused-argument
+    def kv_cas(self, key, value, index, flags=None):
         """Sets, but with CAS semantics"""
 
         self.add(
@@ -190,7 +190,7 @@ class ConsulTransaction:
             }
         )
 
-    def kv_lock(self, key, value, session, flags=None):  # pylint: disable=unused-argument
+    def kv_lock(self, key, value, session, flags=None):
         """Lock with the given Session"""
 
         self.add(
@@ -202,7 +202,7 @@ class ConsulTransaction:
             }
         )
 
-    def kv_unlock(self, key, value, session, flags=None):  # pylint: disable=unused-argument
+    def kv_unlock(self, key, value, session, flags=None):
         """Unlock with the given Session"""
 
         self.add(

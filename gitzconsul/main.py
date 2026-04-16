@@ -39,7 +39,6 @@ from gitzconsul.repo import (
 log = logging.getLogger("gitzconsul")
 
 
-# pylint: disable=unused-argument
 def loglevelfmt(ctx, param, value):
     """use to convert lowercased level passed as option to uppercase"""
     if value is not None:
@@ -54,8 +53,6 @@ POSSIBLE_LEVELS = (
     "INFO",
     "DEBUG",
 )
-
-# pylint: disable=too-many-branches
 
 
 @click.command()
@@ -145,7 +142,7 @@ def main(**options):
                 sync.do()
             else:
                 log.error("Not a directory: %s", abs_root_directory)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             log.error(exc)
             if context.options["debug"]:
                 log.debug(traceback.format_exc())

@@ -84,7 +84,7 @@ class SyncKV:
         self.consul_connection = consul_connection
         self.topkey = self.name + "/"
 
-    def do(self):  # pylint: disable=invalid-name
+    def do(self):
         """Do the sync"""
         known_kv_items = dict(get_tree_kv_indexes(self.consul_connection, self.topkey))
         log.debug("number of kv items in consul: %d", len(known_kv_items))
