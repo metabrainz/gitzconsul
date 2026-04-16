@@ -181,7 +181,11 @@ class TestTxnUtils(unittest.TestCase):
         chunk_size = 10
         sample = list(range(0, int(chunk_size * 2.5)))
         result = list(chunks(sample, chunk_size))
-        expected = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], [20, 21, 22, 23, 24]]
+        expected = [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+            [20, 21, 22, 23, 24],
+        ]
         self.assertCountEqual(result, expected)
 
 
