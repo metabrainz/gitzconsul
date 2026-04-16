@@ -81,7 +81,7 @@ class Context:
                 filehandler = logging.FileHandler(filename=logfile)
                 handlers.append(filehandler)
             except Exception:  # pylint: disable=broad-except
-                pass
+                log.warning("Could not open log file: %s", logfile)
 
         logging.basicConfig(
             level=logging.ERROR,
