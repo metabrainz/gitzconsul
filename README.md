@@ -1,6 +1,9 @@
 # gitzconsul
 
-A Python alternative to git2consul
+Sync JSON files from a git repository into [Consul](https://www.consul.io/) KV store.
+
+A lightweight Python alternative to [git2consul](https://github.com/breser/git2consul) (unmaintained Node.js project).
+It clones a git repository, watches for changes, and flattens JSON files into Consul key/value pairs.
 
 ## Install uv
 
