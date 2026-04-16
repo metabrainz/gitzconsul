@@ -150,6 +150,11 @@ class TestWalk(unittest.TestCase):
             self.assertIn("key1", data)
             self.assertEqual(data["key1"], "value1")
 
+            # Test with string path instead of Path object
+            data = readjsonfile(str(root.joinpath("topdir/valid.json")))
+            self.assertIn("key1", data)
+            self.assertEqual(data["key1"], "value1")
+
             with self.assertRaisesRegex(
                 InvalidJsonFileError,
                 (
