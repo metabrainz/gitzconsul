@@ -39,7 +39,7 @@ RUNCMD_RETRY_DELAY = 5
 
 
 class GitError(Exception):
-    """Raises whenever rumcmd() returned with non-zero exit code"""
+    """Raises whenever git() returned with non-zero exit code"""
 
     def __init__(self, message, cmd, returncode=None):
         self.message = message
