@@ -105,6 +105,7 @@ curl http://localhost:8500/v1/kv/mytopkey?keys
 - Directory specified by `--root` isn't prepended to keys and any content outside of it is ignored.
 - JSON file names are used as keys (it keeps the extension)
 - If a previously parsed json file becomes unparseable, keys related to it are left untouched.
+- The default `--git-ref` is `refs/heads/master`. Use `--git-ref refs/heads/main` for repositories using `main` as default branch.
 
 
 ## Docker
@@ -130,6 +131,8 @@ docker pull metabrainz/gitzconsul
 ```bash
 docker build . -t gitzconsul
 ```
+
+The image uses [tini](https://github.com/krallin/tini) as PID 1 to properly reap zombie processes spawned by git/ssh operations.
 
 
 It will look for ssh files in /tmp/.ssh and copy them over proper user's home with proper perms:
