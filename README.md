@@ -1,6 +1,9 @@
 # gitzconsul
 
-A Python alternative to git2consul
+Sync JSON files from a git repository into [Consul](https://www.consul.io/) KV store.
+
+A lightweight Python alternative to [git2consul](https://github.com/breser/git2consul) (unmaintained Node.js project).
+It clones a git repository, watches for changes, and flattens JSON files into Consul key/value pairs.
 
 ## Install uv
 
@@ -106,6 +109,43 @@ curl http://localhost:8500/v1/kv/mytopkey?keys
 - JSON file names are used as keys (it keeps the extension)
 - If a previously parsed json file becomes unparseable, keys related to it are left untouched.
 - The default `--git-ref` is `refs/heads/master`. Use `--git-ref refs/heads/main` for repositories using `main` as default branch.
+
+## How it works
+
+gitzconsul clones a git repository and polls it for changes at a configurable interval (default: 15 seconds). On each cycle, it:
+
+1. Fetches the latest changes from the remote repository
+2. Walks the directory tree looking for `.json` files
+3. Recursively flattens JSON objects into Consul key paths
+4. Compares with existing Consul KV entries and applies only the diff (add/modify/delete)
+
+JSON flattening rules:
+- Nested objects become path segments: `{"a": {"b": "v"}}` → key `a/b`, value `v`
+- Arrays and non-object values are stored as string values
+- Booleans are stored as lowercase strings (`true`/`false`) for compatibility with git2consul
+- Keys are URI-encoded (spaces become `%20`)
+- Empty keys and keys containing the path separator (`/`) are skipped
+
+## Requirements
+
+- `git` must be installed and on your path
+- Python >= 3.10
+- Write access to the Consul KV store
+- For private repositories: SSH key access (ssh:// URIs preferred)
+
+## Differences from git2consul
+
+gitzconsul is a lightweight alternative to [git2consul](https://github.com/breser/git2consul). Key differences:
+
+- **Single repo only**: gitzconsul watches one repository (git2consul supports multiple)
+- **Single branch only**: tracks one ref via `--git-ref` (git2consul supports multiple branches with branch name in key path)
+- **Polling only**: no webhook support (git2consul supports GitHub, Stash, Bitbucket, and Gitlab webhooks)
+- **JSON only**: no YAML or .properties file expansion (git2consul supports all three)
+- **CLI configuration**: all options are command-line flags (git2consul uses a JSON config stored in Consul)
+- **`--root` option**: equivalent to git2consul's `source_root`, limits which subdirectory is synced
+- **`--consul-key` option**: equivalent to git2consul's repo `name`, used as the top-level key prefix
+- **No branch name in keys**: keys are `<consul-key>/<path>/<file.json>/<json-key>` (git2consul includes the branch name)
+- **No `expand_keys` toggle**: JSON expansion is always on (git2consul requires explicit opt-in)
 
 
 ## Docker
