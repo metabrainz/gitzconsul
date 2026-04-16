@@ -103,7 +103,6 @@ def main(**options):
     interval = context.options["interval"]
 
     log.info("Options: %r", context.options)
-    repo_path = None
     git_ref = context.options["git_ref"]
     git_url = context.options["git_url"]
     repo_path = Path(context.options["directory"]).resolve()
