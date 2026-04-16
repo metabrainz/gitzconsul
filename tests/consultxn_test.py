@@ -67,6 +67,13 @@ class TestConsulConnection(unittest.TestCase):
             conn = ConsulConnection("http://localhost:8500", acl_token_file=f.name)
         self.assertNotIn("X-Consul-Token", conn.headers)
 
+    def test_whitespace_only_token_file_does_not_clobber(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".token", delete=False) as f:
+            f.write("  \n")
+            f.flush()
+            conn = ConsulConnection("http://localhost:8500", acl_token="valid", acl_token_file=f.name)
+        self.assertEqual(conn.headers["X-Consul-Token"], "valid")
+
 
 class TestConsulTransactionOp(unittest.TestCase):
     """Test ConsulTransactionOp"""

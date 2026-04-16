@@ -47,7 +47,7 @@ class ConsulConnection:
 
         if acl_token_file:
             with open(acl_token_file, "r", encoding="utf8") as tokenfile:
-                value = tokenfile.read()
+                value = tokenfile.read().strip()
                 if value:
                     acl_token = value
         if acl_token:
