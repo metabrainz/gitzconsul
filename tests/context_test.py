@@ -20,6 +20,12 @@ class TestContext(unittest.TestCase):
         self.assertFalse(ctx.kill_now)
         self.assertIsInstance(ctx.on_exit, dict)
 
+    def test_instances_do_not_share_state(self):
+        ctx1 = self._make_context()
+        ctx2 = self._make_context()
+        ctx1.on_exit["cb"] = lambda: None
+        self.assertNotIn("cb", ctx2.on_exit)
+
     def test_configure_logging_with_loglevel(self):
         self._make_context(loglevel="WARNING")
         from gitzconsul import log

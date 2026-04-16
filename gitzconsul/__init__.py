@@ -30,12 +30,12 @@ log = logging.getLogger("gitzconsul")
 class Context:
     """meant to store common stuff, like config"""
 
-    kill_now = False
-    on_exit = {}
-    _sig2name = None
     gitzconsul = None
 
     def __init__(self, options):
+        self.kill_now = False
+        self.on_exit = {}
+        self._sig2name = None
         self.options = options
         self.configure_logging(options)
 
