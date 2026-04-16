@@ -97,7 +97,7 @@ class ConsulTransaction:
 
     MAX_PER_TRANSACTION = 64
     # https://requests.readthedocs.io/en/master/user/quickstart/#timeouts
-    TIMEOUT = 0.5
+    TIMEOUT = 5
 
     def __init__(self, consul_connection):
         self._operations = []
