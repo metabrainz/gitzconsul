@@ -13,6 +13,14 @@ uv sync
 uv run gitzconsul --help
 ```
 
+## Running tests
+
+```bash
+uv run ruff check gitzconsul tests
+uv run ruff format gitzconsul tests
+uv run python -m pytest -v --cov=gitzconsul tests/
+```
+
 ## Dependencies
 
 - `git` command
