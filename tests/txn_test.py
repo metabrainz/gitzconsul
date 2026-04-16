@@ -148,7 +148,7 @@ def start_mock_server(port):
     """Start the mock server"""
     mock_server = HTTPServer(("localhost", port), MockServerRequestHandler)
     mock_server_thread = Thread(target=mock_server.serve_forever)
-    mock_server_thread.setDaemon(True)
+    mock_server_thread.daemon = True
     mock_server_thread.start()
     # HACK: Wait for the server to be launched
     loops = 0

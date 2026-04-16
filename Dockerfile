@@ -24,6 +24,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
     bash \
+    curl \
     git \
     openssh-client \
     ca-certificates \
@@ -35,8 +36,7 @@ ARG GOSU_VERSION=1.17
 ARG GOSU_PATH=/usr/local/bin/gosu
 RUN dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && echo "Downloading gosu $GOSU_VERSION-$dpkgArch -> $GOSU_PATH" \
- && curl() { python -c "import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1],sys.argv[2])" "$@"; } \
- && curl "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" "$GOSU_PATH" \
+ && curl --location --output "$GOSU_PATH" "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" \
  && chmod +x "$GOSU_PATH" \
  && gosu nobody true
 
