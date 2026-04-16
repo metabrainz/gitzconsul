@@ -34,6 +34,20 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 
+[tool.coverage.run]
+branch = true
+source = ["gitzconsul"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if self.debug:",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+ignore_errors = true
+omit = ["tests/*"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
