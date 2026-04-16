@@ -1,4 +1,5 @@
 """Test consul stuff"""
+
 from http.server import (
     BaseHTTPRequestHandler,
     HTTPServer,
@@ -26,18 +27,19 @@ from gitzconsul.consultxn import (
 def resp_obj(consul_obj):
     """Returns a copy of consul_obj with Value sets to None"""
     obj = consul_obj.copy()
-    obj['Value'] = None
+    obj["Value"] = None
     return obj
 
 
 class MockServerRequestHandler(BaseHTTPRequestHandler):
     """Mock to simulate consul server"""
+
     kv_store = {}
     idx = 0
 
     def do_GET(self):  # pylint: disable=invalid-name
         """Implement do_GET"""
-        if self.path == '/ping':
+        if self.path == "/ping":
             self.send_response(200, message="pong")
             self.end_headers()
         else:
@@ -45,58 +47,47 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def _load(self):
-        length = int(self.headers.get('content-length', 0))
+        length = int(self.headers.get("content-length", 0))
         content = self.rfile.read(length)
         json_content = json.loads(content)
         num = len(json_content)
         return num, json_content
 
     def _kv_set_cas(self, resp, _errors, _i, operation):
-        op_kv_key = operation['KV']['Key']
+        op_kv_key = operation["KV"]["Key"]
         if op_kv_key in self.kv_store:
-            cur = self.kv_store[op_kv_key]['ModifyIndex']
+            cur = self.kv_store[op_kv_key]["ModifyIndex"]
             modifyidx = cur + 1
-            createidx = self.kv_store[op_kv_key][
-                'CreateIndex']
+            createidx = self.kv_store[op_kv_key]["CreateIndex"]
         else:
             createidx = self.idx
             modifyidx = self.idx
         consul_obj = {
-                'LockIndex': 0,
-                'Key': op_kv_key,
-                'Flags': 0,
-                'Value': operation['KV']['Value'],
-                'CreateIndex': createidx,
-                'ModifyIndex': modifyidx,
-            }
+            "LockIndex": 0,
+            "Key": op_kv_key,
+            "Flags": 0,
+            "Value": operation["KV"]["Value"],
+            "CreateIndex": createidx,
+            "ModifyIndex": modifyidx,
+        }
         self.kv_store[op_kv_key] = consul_obj
-        resp.append({
-            'KV': resp_obj(consul_obj)
-        })
+        resp.append({"KV": resp_obj(consul_obj)})
 
     def _kv_get(self, resp, errors, i, operation):
-        op_kv_key = operation['KV']['Key']
+        op_kv_key = operation["KV"]["Key"]
         if op_kv_key in self.kv_store:
-            resp.append({
-                'KV': self.kv_store[op_kv_key]
-            })
+            resp.append({"KV": self.kv_store[op_kv_key]})
         else:
-            errors.append({
-                'OpIndex': i,
-                'What': f'key "{op_kv_key}" doesn\'t exist'
-            })
+            errors.append({"OpIndex": i, "What": f'key "{op_kv_key}" doesn\'t exist'})
 
     def _kv_get_tree(self, resp, _errors, _i, operation):
-        op_kv_key = operation['KV']['Key']
-        selected = [key for key in self.kv_store
-                    if key.startswith(op_kv_key)]
+        op_kv_key = operation["KV"]["Key"]
+        selected = [key for key in self.kv_store if key.startswith(op_kv_key)]
         for key in selected:
-            resp.append({
-                'KV': self.kv_store[key]
-            })
+            resp.append({"KV": self.kv_store[key]})
 
     def _kv_delete(self, _resp, _errors, _i, operation):
-        op_kv_key = operation['KV']['Key']
+        op_kv_key = operation["KV"]["Key"]
         if op_kv_key in self.kv_store:
             del self.kv_store[op_kv_key]
         # no error is generated if trying to delete an
@@ -104,28 +95,24 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
 
     def do_PUT(self):  # pylint: disable=invalid-name
         """Simulate consul PUT txn"""
-        if self.path == '/v1/txn':
+        if self.path == "/v1/txn":
             num, json_content = self._load()
             if num > 64:
-                self.send_response(
-                    413,
-                    message=("Transaction contains too many operations "
-                             f"({num} > 64)")
-                )
+                self.send_response(413, message=(f"Transaction contains too many operations ({num} > 64)"))
                 self.end_headers()
                 return
             resp = []
             errors = []
             self.idx += 1
             for i, operation in enumerate(json_content):
-                op_kv_verb = operation['KV']['Verb']
-                if op_kv_verb in {'set', 'cas'}:
+                op_kv_verb = operation["KV"]["Verb"]
+                if op_kv_verb in {"set", "cas"}:
                     self._kv_set_cas(resp, errors, i, operation)
-                elif op_kv_verb == 'get':
+                elif op_kv_verb == "get":
                     self._kv_get(resp, errors, i, operation)
-                elif op_kv_verb == 'get-tree':
+                elif op_kv_verb == "get-tree":
                     self._kv_get_tree(resp, errors, i, operation)
-                elif op_kv_verb == 'delete':
+                elif op_kv_verb == "delete":
                     self._kv_delete(resp, errors, i, operation)
             if errors:
                 resp = None
@@ -134,20 +121,20 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
                 errors = None
                 code = 200
             resp_json = {
-                'Results': resp,
-                'Errors': errors,
+                "Results": resp,
+                "Errors": errors,
             }
             self.send_response(code)
-            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
             json_str = json.dumps(resp_json)
-            self.wfile.write(json_str.encode(encoding='utf_8'))
+            self.wfile.write(json_str.encode(encoding="utf_8"))
 
 
 def get_free_port():
     """Returns the number of a free port"""
     sock = socket.socket(socket.AF_INET, type=socket.SOCK_STREAM)
-    sock.bind(('localhost', 0))
+    sock.bind(("localhost", 0))
     _unused, port = sock.getsockname()
     sock.close()
     return port
@@ -159,7 +146,7 @@ class MockException(Exception):
 
 def start_mock_server(port):
     """Start the mock server"""
-    mock_server = HTTPServer(('localhost', port), MockServerRequestHandler)
+    mock_server = HTTPServer(("localhost", port), MockServerRequestHandler)
     mock_server_thread = Thread(target=mock_server.serve_forever)
     mock_server_thread.setDaemon(True)
     mock_server_thread.start()
@@ -179,11 +166,12 @@ def start_mock_server(port):
 
 class TestTxnUtils(unittest.TestCase):
     """Test class for consul transaction utility methods"""
+
     def test_chunks(self):
         """test chunks()"""
         numchunks = 10
         chunk_size = 64
-        sample = list(range(0, numchunks*chunk_size))
+        sample = list(range(0, numchunks * chunk_size))
         count = 0
         for chunk in chunks(sample, chunk_size):
             self.assertEqual(len(chunk), chunk_size)
@@ -191,13 +179,9 @@ class TestTxnUtils(unittest.TestCase):
         self.assertEqual(count, numchunks)
 
         chunk_size = 10
-        sample = list(range(0, int(chunk_size*2.5)))
+        sample = list(range(0, int(chunk_size * 2.5)))
         result = list(chunks(sample, chunk_size))
-        expected = [
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-            [20, 21, 22, 23, 24]
-        ]
+        expected = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], [20, 21, 22, 23, 24]]
         self.assertCountEqual(result, expected)
 
 
@@ -213,13 +197,11 @@ class TestConsulTxn(unittest.TestCase):
             port = get_free_port()
             start_mock_server(port)
 
-        self.consul = ConsulConnection(f'http://localhost:{port}')
+        self.consul = ConsulConnection(f"http://localhost:{port}")
 
     def test_consul_set_get_kv(self):
         """test set_kv() and get_kv()"""
-        keysvalues = [
-            (f'topkey/subkey{i%8}/key {i}', f'value {i}') for i in range(0, 80)
-        ]
+        keysvalues = [(f"topkey/subkey{i % 8}/key {i}", f"value {i}") for i in range(0, 80)]
 
         all_keys = list(dict(keysvalues))
         set_kvs = list(set_kv(self.consul, keysvalues))
@@ -228,12 +210,12 @@ class TestConsulTxn(unittest.TestCase):
         self.maxDiff = None  # pylint: disable=invalid-name
         self.assertCountEqual(retrieved_kvs, dict(keysvalues))
 
-        prefix = 'topkey/subkey1/'
+        prefix = "topkey/subkey1/"
         keys = list(dict(get_tree_kv(self.consul, prefix)))
         expected = [key for key in all_keys if key.startswith(prefix)]
         self.assertCountEqual(keys, expected)
 
-        prefix = 'topkey/sub'
+        prefix = "topkey/sub"
         keys = list(dict(get_tree_kv(self.consul, prefix)))
         expected = [key for key in all_keys if key.startswith(prefix)]
         self.assertCountEqual(keys, expected)
@@ -273,10 +255,9 @@ class TestConsulTxn(unittest.TestCase):
                     self.assertIsNone(results)
                     ops, errs = errors
                     self.assertEqual(len(errs), 1)
-                    opindex = errs[0]['OpIndex']
+                    opindex = errs[0]["OpIndex"]
                     self.assertEqual(opindex, 2)
-                    self.assertEqual(ops[opindex],
-                                     {'Verb': 'get', 'Key': 'unknown_key'})
+                    self.assertEqual(ops[opindex], {"Verb": "get", "Key": "unknown_key"})
                 count += 1
 
     def test_consul_delete_key(self):
@@ -292,10 +273,9 @@ class TestConsulTxn(unittest.TestCase):
                 self.assertIsNone(results)
                 ops, errs = errors
                 self.assertEqual(len(errs), 1)
-                opindex = errs[0]['OpIndex']
+                opindex = errs[0]["OpIndex"]
                 self.assertEqual(opindex, 3)
-                self.assertEqual(ops[opindex],
-                                 {'Verb': 'get', 'Key': 'key_to_delete'})
+                self.assertEqual(ops[opindex], {"Verb": "get", "Key": "key_to_delete"})
 
     def test_consul_set_int(self):
         """Test set int"""
@@ -304,15 +284,15 @@ class TestConsulTxn(unittest.TestCase):
             txn.kv_get("keyxxx")
 
             results = list(txn.execute())
-            self.assertEqual(results[0][0]['Value'], '')
-            self.assertEqual(results[1][0]['Value'], '666')
+            self.assertEqual(results[0][0]["Value"], "")
+            self.assertEqual(results[1][0]["Value"], "666")
 
     def test_consul_set_empty(self):
         """Test set empty"""
         with ConsulTransaction(self.consul) as txn:
-            txn.kv_set("keyxzx", '')
+            txn.kv_set("keyxzx", "")
             txn.kv_get("keyxzx")
 
             results = list(txn.execute())
-            self.assertEqual(results[0][0]['Value'], '')
-            self.assertEqual(results[1][0]['Value'], '')
+            self.assertEqual(results[0][0]["Value"], "")
+            self.assertEqual(results[1][0]["Value"], "")

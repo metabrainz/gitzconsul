@@ -31,13 +31,12 @@ class ConsulConnection:
 
     USERAGENT = "gitzconsul"
 
-    def __init__(self, url, data_center=None, acl_token=None,
-                 acl_token_file=None):
+    def __init__(self, url, data_center=None, acl_token=None, acl_token_file=None):
         self.baseurl = url
         self._params = {}
 
         if data_center is not None:
-            self._params['dc'] = data_center
+            self._params["dc"] = data_center
 
         if acl_token_file:
             with open(acl_token_file, "r", encoding="utf8") as tokenfile:
@@ -48,13 +47,13 @@ class ConsulConnection:
             acl_token = acl_token.strip()
 
         self.headers = {
-            'Content-Type': "application/json",
-            'User-Agent': self.USERAGENT,
-            'Accept': "*/*",
-            'Cache-Control': "no-cache",
+            "Content-Type": "application/json",
+            "User-Agent": self.USERAGENT,
+            "Accept": "*/*",
+            "Cache-Control": "no-cache",
         }
         if acl_token:
-            self.headers['X-Consul-Token'] = acl_token
+            self.headers["X-Consul-Token"] = acl_token
 
     @property
     def params(self):
@@ -70,17 +69,17 @@ class ConsulTransactionOp:  # pylint: disable=too-few-public-methods
 
     def __init__(self, operation):
         payload = {
-            'KV': {
-                'Verb': operation['Verb'],
-                'Key': encode_key(operation['Key']),
+            "KV": {
+                "Verb": operation["Verb"],
+                "Key": encode_key(operation["Key"]),
             }
         }
-        if 'Value' in operation:
-            payload['KV']['Value'] = encode_value(operation['Value'])
-        if 'Index' in operation:
-            payload['KV']['Index'] = int(operation['Index'])
-        if 'Session' in operation:
-            payload['KV']['Session'] = operation['Session']
+        if "Value" in operation:
+            payload["KV"]["Value"] = encode_value(operation["Value"])
+        if "Index" in operation:
+            payload["KV"]["Index"] = int(operation["Index"])
+        if "Session" in operation:
+            payload["KV"]["Session"] = operation["Session"]
 
         self.operation = operation
         self.payload = payload
@@ -104,22 +103,18 @@ class ConsulTransaction:
         url = f"{conn.baseurl}/v1/txn"
         params = conn.params
         if params:
-            url += '?' + params
-        response = requests.request("PUT",
-                                    url,
-                                    data=data,
-                                    headers=conn.headers,
-                                    timeout=self.TIMEOUT,
-                                    )
+            url += "?" + params
+        response = requests.request(
+            "PUT",
+            url,
+            data=data,
+            headers=conn.headers,
+            timeout=self.TIMEOUT,
+        )
         if response.status_code in (200, 409):
             resp_json = response.json()
         else:
-            resp_json = {
-                'Errors': (
-                    response.request.url,
-                    f"{response.status_code}: {response.reason}"
-                )
-            }
+            resp_json = {"Errors": (response.request.url, f"{response.status_code}: {response.reason}")}
         return response.status_code, resp_json
 
     def __enter__(self):
@@ -141,23 +136,23 @@ class ConsulTransaction:
     def execute(self, match_keys=None):
         """Execute the Consul Transaction"""
         if match_keys is None:
-            match_keys = {'Key', 'Value'}
+            match_keys = {"Key", "Value"}
         else:
             match_keys = set(match_keys)
         for code, response, operations in self._execute():
             if code == 200:
-                for entry in response['Results']:
+                for entry in response["Results"]:
                     resdict = {}
-                    for kv_key, kv_value in entry['KV'].items():
-                        if kv_key == 'Key':
+                    for kv_key, kv_value in entry["KV"].items():
+                        if kv_key == "Key":
                             kv_value = decode_key(kv_value)
-                        elif kv_key == 'Value':
+                        elif kv_key == "Value":
                             kv_value = decode_value(kv_value)
                         if match_keys is None or kv_key in match_keys:
                             resdict[kv_key] = kv_value
                     yield resdict, None
             else:
-                yield None, (operations, response['Errors'])
+                yield None, (operations, response["Errors"])
 
     # https://www.consul.io/api-docs/txn#kv-operations
 
@@ -168,114 +163,138 @@ class ConsulTransaction:
     def kv_set(self, key, value, flags=None):  # pylint: disable=unused-argument
         """Sets the Key to the given Value"""
 
-        self.add({
-            'Verb': 'set',
-            'Key': key,
-            'Value': value,
-        })
+        self.add(
+            {
+                "Verb": "set",
+                "Key": key,
+                "Value": value,
+            }
+        )
 
     def kv_cas(self, key, value, index, flags=None):  # pylint: disable=unused-argument
         """Sets, but with CAS semantics"""
 
-        self.add({
-            'Verb': 'cas',
-            'Key': key,
-            'Value': value,
-            'Index': index,
-        })
+        self.add(
+            {
+                "Verb": "cas",
+                "Key": key,
+                "Value": value,
+                "Index": index,
+            }
+        )
 
     def kv_lock(self, key, value, session, flags=None):  # pylint: disable=unused-argument
         """Lock with the given Session"""
 
-        self.add({
-            'Verb': 'lock',
-            'Key': key,
-            'Value': value,
-            'Session': session,
-        })
+        self.add(
+            {
+                "Verb": "lock",
+                "Key": key,
+                "Value": value,
+                "Session": session,
+            }
+        )
 
     def kv_unlock(self, key, value, session, flags=None):  # pylint: disable=unused-argument
         """Unlock with the given Session"""
 
-        self.add({
-            'Verb': 'unlock',
-            'Key': key,
-            'Value': value,
-            'Session': session,
-        })
+        self.add(
+            {
+                "Verb": "unlock",
+                "Key": key,
+                "Value": value,
+                "Session": session,
+            }
+        )
 
     def kv_get(self, key):
         """Get the key, fails if it does not exist"""
 
-        self.add({
-            'Verb': 'get',
-            'Key': key,
-        })
+        self.add(
+            {
+                "Verb": "get",
+                "Key": key,
+            }
+        )
 
     def kv_get_tree(self, key):
         """Gets all keys with the prefix"""
 
-        self.add({
-            'Verb': 'get-tree',
-            'Key': key,
-        })
+        self.add(
+            {
+                "Verb": "get-tree",
+                "Key": key,
+            }
+        )
 
     def kv_check_index(self, key, index):
         """Fail if modify index != index"""
 
-        self.add({
-            'Verb': 'check-index',
-            'Key': key,
-            'Index': index,
-        })
+        self.add(
+            {
+                "Verb": "check-index",
+                "Key": key,
+                "Index": index,
+            }
+        )
 
     def kv_check_session(self, key, session):
         """Fail if not locked by session"""
 
-        self.add({
-            'Verb': 'check-session',
-            'Key': key,
-            'Session': session,
-        })
+        self.add(
+            {
+                "Verb": "check-session",
+                "Key": key,
+                "Session": session,
+            }
+        )
 
     def kv_check_not_exists(self, key):
         """Fail if key exists"""
 
-        self.add({
-            'Verb': 'check-not-exists',
-            'Key': key,
-        })
+        self.add(
+            {
+                "Verb": "check-not-exists",
+                "Key": key,
+            }
+        )
 
     def kv_delete(self, key):
         """Delete the key"""
 
-        self.add({
-            'Verb': 'delete',
-            'Key': key,
-        })
+        self.add(
+            {
+                "Verb": "delete",
+                "Key": key,
+            }
+        )
 
     def kv_delete_tree(self, key):
         """Delete all keys with a prefix"""
 
-        self.add({
-            'Verb': 'delete-tree',
-            'Key': key,
-        })
+        self.add(
+            {
+                "Verb": "delete-tree",
+                "Key": key,
+            }
+        )
 
     def kv_delete_cas(self, key, index):
         """Delete, but with CAS semantics"""
 
-        self.add({
-            'Verb': 'delete-cas',
-            'Key': key,
-            'Index': index,
-        })
+        self.add(
+            {
+                "Verb": "delete-cas",
+                "Key": key,
+                "Index": index,
+            }
+        )
 
 
 def encode_value(value):
     """Encode the value for Consul (base64 encoding)"""
     if not isinstance(value, bytes):
-        value = str(value).encode('utf-8')
+        value = str(value).encode("utf-8")
     # https://python-consul.readthedocs.io/en/latest/#consul.base.Consul.Txn
     # https://www.consul.io/api-docs/txn#kv-operations
     return b64encode(value).decode("utf-8")
@@ -284,8 +303,8 @@ def encode_value(value):
 def decode_value(value):
     """Decode the value from Consul (base64 decoding)"""
     if value is not None:
-        return b64decode(value).decode('utf-8')
-    return ''
+        return b64decode(value).decode("utf-8")
+    return ""
 
 
 def encode_key(key):
@@ -304,7 +323,7 @@ def decode_key(key):
 def chunks(spliceable, chunk_size):
     """Generate chunks of chunk_size from spliceable"""
     for idx in range(0, len(spliceable), chunk_size):
-        yield spliceable[idx:idx + chunk_size]
+        yield spliceable[idx : idx + chunk_size]
 
 
 def set_kv(cons, kvlist):
@@ -314,7 +333,7 @@ def set_kv(cons, kvlist):
             txn.kv_set(key, value)
         for result, errors in txn.execute():
             if not errors:
-                yield result['Key']
+                yield result["Key"]
 
 
 def get_kv(cons, keylist):
@@ -324,7 +343,7 @@ def get_kv(cons, keylist):
             txn.kv_get(key)
         for result, errors in txn.execute():
             if not errors:
-                yield result['Key'], result['Value']
+                yield result["Key"], result["Value"]
 
 
 def get_tree_kv(cons, key):
@@ -333,14 +352,14 @@ def get_tree_kv(cons, key):
         txn.kv_get_tree(key)
         for result, errors in txn.execute():
             if not errors:
-                yield result['Key'], result['Value']
+                yield result["Key"], result["Value"]
 
 
 def get_tree_kv_indexes(cons, key):
     """Same as get_tree_kv(), but also append the ModifyIndex"""
-    match_keys = {'Key', 'Value', 'ModifyIndex'}
+    match_keys = {"Key", "Value", "ModifyIndex"}
     with ConsulTransaction(cons) as txn:
         txn.kv_get_tree(key)
         for result, errors in txn.execute(match_keys=match_keys):
             if not errors:
-                yield result['Key'], (result['Value'], result['ModifyIndex'])
+                yield result["Key"], (result["Value"], result["ModifyIndex"])

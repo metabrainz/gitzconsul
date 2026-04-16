@@ -24,11 +24,12 @@ import signal
 import sys
 
 
-log = logging.getLogger('gitzconsul')
+log = logging.getLogger("gitzconsul")
 
 
 class Context:
     """meant to store common stuff, like config"""
+
     kill_now = False
     on_exit = {}
     _sig2name = None
@@ -76,7 +77,7 @@ class Context:
         """configure logging"""
         console_handler = logging.StreamHandler(sys.stderr)
         handlers = [console_handler]
-        logfile = self.options['logfile']
+        logfile = self.options["logfile"]
         if logfile:
             try:
                 filehandler = logging.FileHandler(filename=logfile)
@@ -86,10 +87,10 @@ class Context:
 
         logging.basicConfig(
             level=logging.ERROR,
-            format='[%(asctime)s] {%(module)s:%(lineno)d} %(levelname)s - %(message)s',
-            handlers=handlers
+            format="[%(asctime)s] {%(module)s:%(lineno)d} %(levelname)s - %(message)s",
+            handlers=handlers,
         )
         try:
-            log.setLevel(options['loglevel'])
+            log.setLevel(options["loglevel"])
         except ValueError as exc:
             log.error(exc)

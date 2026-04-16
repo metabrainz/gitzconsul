@@ -36,7 +36,7 @@ from gitzconsul.repo import (
     sync_with_remote,
 )
 
-log = logging.getLogger('gitzconsul')
+log = logging.getLogger("gitzconsul")
 
 
 # pylint: disable=unused-argument
@@ -48,11 +48,11 @@ def loglevelfmt(ctx, param, value):
 
 
 POSSIBLE_LEVELS = (
-    'CRITICAL',
-    'ERROR',
-    'WARNING',
-    'INFO',
-    'DEBUG',
+    "CRITICAL",
+    "ERROR",
+    "WARNING",
+    "INFO",
+    "DEBUG",
 )
 
 # pylint: disable=too-many-branches
@@ -60,100 +60,53 @@ POSSIBLE_LEVELS = (
 
 @click.command()
 @click.option(
-    '-r',
-    '--root',
-    help='root directory to read files from, relative to directory',
-    default="",
-    show_default=True
+    "-r", "--root", help="root directory to read files from, relative to directory", default="", show_default=True
 )
+@click.option("-d", "--directory", help="directory of the repository, will be created if needed", required=True)
+@click.option("-g", "--git-url", help="git repository remote url", default=None)
+@click.option("-R", "--git-ref", help="git repository remote ref", default="refs/heads/master", show_default=True)
+@click.option("-k", "--consul-key", help="add keys under this key", required=True)
+@click.option("-u", "--consul-url", help="consul url", default="http://localhost:8500", show_default=True)
+@click.option("-i", "--interval", help="interval in seconds between syncs", default=15, show_default=True)
 @click.option(
-    '-d',
-    '--directory',
-    help='directory of the repository, will be created if needed',
-    required=True
-)
-@click.option(
-    '-g',
-    '--git-url',
-    help='git repository remote url',
-    default=None
-)
-@click.option(
-    '-R',
-    '--git-ref',
-    help='git repository remote ref',
-    default='refs/heads/master',
-    show_default=True
-)
-@click.option(
-    '-k',
-    '--consul-key',
-    help='add keys under this key',
-    required=True
-)
-@click.option(
-    '-u',
-    '--consul-url',
-    help='consul url',
-    default='http://localhost:8500',
-    show_default=True
-)
-@click.option(
-    '-i',
-    '--interval',
-    help='interval in seconds between syncs',
-    default=15,
-    show_default=True
-)
-@click.option(
-    '-a',
-    '--consul-datacenter',
-    help='consul datacenter',
+    "-a",
+    "--consul-datacenter",
+    help="consul datacenter",
     default=None,
 )
 @click.option(
-    '-t',
-    '--consul-token',
-    help='consul token',
+    "-t",
+    "--consul-token",
+    help="consul token",
     default=None,
 )
 @click.option(
-    '-T',
-    '--consul-token-file',
-    help='path to file containing consul token',
+    "-T",
+    "--consul-token-file",
+    help="path to file containing consul token",
     default=None,
 )
+@click.option("-f", "--logfile", help="log file path", default=None)
 @click.option(
-    '-f',
-    '--logfile',
-    help="log file path",
-    default=None
-)
-@click.option(
-    '-l',
-    '--loglevel',
+    "-l",
+    "--loglevel",
     help="log level",
     default="INFO",
     show_default=True,
     type=click.Choice(POSSIBLE_LEVELS, case_sensitive=False),
-    callback=loglevelfmt
+    callback=loglevelfmt,
 )
-@click.option(
-    '-G',
-    '--debug',
-    help='output extra debug info',
-    is_flag=True
-)
+@click.option("-G", "--debug", help="output extra debug info", is_flag=True)
 def main(**options):
     """Register kv values into consul based on git repository content"""
     context = Context(options)
-    interval = context.options['interval']
+    interval = context.options["interval"]
 
     log.info("Options: %r", context.options)
     repo_path = None
-    git_ref = context.options['git_ref']
-    git_url = context.options['git_url']
-    repo_path = Path(context.options['directory']).resolve()
+    git_ref = context.options["git_ref"]
+    git_url = context.options["git_url"]
+    repo_path = Path(context.options["directory"]).resolve()
     log.info("Directory: %s", repo_path)
     if git_url:
         if not init_git_repo(repo_path, git_url, git_ref):
@@ -164,7 +117,7 @@ def main(**options):
             log.error("%s isn't a directory", repo_path)
             sys.exit(1)
 
-    root_directory = Path(context.options['root'])
+    root_directory = Path(context.options["root"])
     if root_directory.is_absolute():
         log.error("%s must be relative to %s", root_directory, repo_path)
         sys.exit(1)
@@ -173,35 +126,29 @@ def main(**options):
     while not context.kill_now:
         try:
             if git_url and is_a_git_repository(repo_path):
-                log.debug("Fetching from remote %s ref=%s repo=%s",
-                          git_url, git_ref, repo_path)
+                log.debug("Fetching from remote %s ref=%s repo=%s", git_url, git_ref, repo_path)
                 sync_with_remote(repo_path, git_ref)
             abs_root_directory = repo_path.joinpath(root_directory).resolve()
             if abs_root_directory.is_dir():
                 consul_connection = ConsulConnection(
-                    context.options['consul_url'],
-                    data_center=context.options['consul_datacenter'],
-                    acl_token=context.options['consul_token'],
-                    acl_token_file=context.options['consul_token_file']
+                    context.options["consul_url"],
+                    data_center=context.options["consul_datacenter"],
+                    acl_token=context.options["consul_token"],
+                    acl_token_file=context.options["consul_token_file"],
                 )
-                sync = SyncKV(abs_root_directory,
-                              context.options['consul_key'], consul_connection)
+                sync = SyncKV(abs_root_directory, context.options["consul_key"], consul_connection)
                 if first_run:
                     log_func = log.info
                 else:
                     log_func = log.debug
                 first_run = False
-                log_func(
-                    "Syncing consul @%s (%s) with %s",
-                    sync.consul_connection,
-                    sync.topkey,
-                    sync.root)
+                log_func("Syncing consul @%s (%s) with %s", sync.consul_connection, sync.topkey, sync.root)
                 sync.do()
             else:
                 log.error("Not a directory: %s", abs_root_directory)
         except Exception as exc:  # pylint: disable=broad-except
             log.error(exc)
-            if context.options['debug']:
+            if context.options["debug"]:
                 log.debug(traceback.format_exc())
         finally:
             if not context.kill_now:

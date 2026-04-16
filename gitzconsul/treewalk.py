@@ -25,19 +25,19 @@ import json
 from pathlib import Path
 
 
-log = logging.getLogger('gitzconsul')
+log = logging.getLogger("gitzconsul")
 
 
 def walk(root):
     """Walk down tree starting at root and return a generator among all
-       json files
+    json files
     """
     for path in Path(root).iterdir():
         if path.is_dir():
             yield from walk(path)
         elif not path.is_file():
             continue
-        elif path.suffix not in {'.json'}:
+        elif path.suffix not in {".json"}:
             continue
         else:
             yield path
@@ -52,26 +52,20 @@ def readjsonfile(path):
     if not isinstance(path, Path):
         path = Path(path)
     if not path.exists():
-        raise InvalidJsonFileError(
-            f"cannot read json from file {path}: doesn't exist"
-        )
+        raise InvalidJsonFileError(f"cannot read json from file {path}: doesn't exist")
     if not path.is_file():
         # avoid special files like fifo or socket
-        raise InvalidJsonFileError(
-            f"cannot read json from file {path}: unsupported file type"
-        )
+        raise InvalidJsonFileError(f"cannot read json from file {path}: unsupported file type")
     try:
-        with path.open(encoding='utf8') as json_file:
+        with path.open(encoding="utf8") as json_file:
             return json.load(json_file)
     except (OSError, json.decoder.JSONDecodeError) as exc:
-        raise InvalidJsonFileError(
-            f"cannot read json from file {path}: {exc}"
-        ) from exc
+        raise InvalidJsonFileError(f"cannot read json from file {path}: {exc}") from exc
 
 
 def filepath2key(path, root, sep="/"):
     """Build a key from path which has to be relative to root
-       path=/a/b/c root=/a -> b/c
+    path=/a/b/c root=/a -> b/c
     """
     if not isinstance(path, Path):
         path = Path(path)
@@ -81,7 +75,7 @@ def filepath2key(path, root, sep="/"):
     return sep.join(parts)
 
 
-def flatten_json_keys(jsondict, root=None, sep='/'):
+def flatten_json_keys(jsondict, root=None, sep="/"):
     """Generator transforming a tree to a list, flattening all keys
 
     'a': {
@@ -106,7 +100,7 @@ def flatten_json_keys(jsondict, root=None, sep='/'):
             yield sep.join(flat_key), value
 
 
-def treewalk(root, sep='/'):
+def treewalk(root, sep="/"):
     """Parse a tree"""
     for path in walk(root):
         pathkey = filepath2key(path, root, sep=sep)
