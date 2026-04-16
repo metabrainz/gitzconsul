@@ -28,6 +28,7 @@ RUN apt-get update \
     git \
     openssh-client \
     ca-certificates \
+    tini \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
@@ -64,4 +65,4 @@ ENV USER_HOME=$USER_HOME
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
