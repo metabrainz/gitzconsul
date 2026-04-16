@@ -11,10 +11,8 @@ from gitzconsul.repo import (
     init_git_repo,
     is_a_git_repository,
     get_local_commit_id,
-    get_remote_commit_id,
     sync_with_remote,
     SyncWithRemoteError,
-    WORKING_BRANCH,
 )
 
 

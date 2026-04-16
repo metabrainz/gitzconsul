@@ -21,14 +21,14 @@ class TestContext(unittest.TestCase):
         self.assertIsInstance(ctx.on_exit, dict)
 
     def test_configure_logging_with_loglevel(self):
-        ctx = self._make_context(loglevel="WARNING")
+        self._make_context(loglevel="WARNING")
         from gitzconsul import log
 
         self.assertEqual(log.level, logging.WARNING)
 
     def test_configure_logging_invalid_loglevel(self):
         # Should not raise, just log an error
-        ctx = self._make_context(loglevel="INVALID")
+        self._make_context(loglevel="INVALID")
 
     def test_configure_logging_with_logfile(self, tmp_path=None):
         import tempfile
@@ -37,7 +37,7 @@ class TestContext(unittest.TestCase):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".log") as f:
             logfile = f.name
         try:
-            ctx = self._make_context(logfile=logfile)
+            self._make_context(logfile=logfile)
         finally:
             os.unlink(logfile)
 
