@@ -46,8 +46,8 @@ COPY . /code/
 
 RUN uv sync --frozen --no-dev --no-editable
 
-ARG USER_ID=61000
-ARG USER_GROUP_ID=61000
+ARG USER_ID=50000
+ARG USER_GROUP_ID=50000
 ARG USER_NAME=gitzconsul
 ARG USER_GROUP=${USER_NAME}
 ARG USER_HOME=/home/${USER_NAME}

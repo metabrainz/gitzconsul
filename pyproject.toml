@@ -1,6 +1,6 @@
 [project]
 name = "gitzconsul"
-version = "0.2.7"
+version = "0.3.0"
 description = "Bridge betwen git repositories and consul kv, inspired by git2consul"
 authors = [{name = "Laurent Monin", email = "zas@metabrainz.org"}]
 license = {text = "GPL-3.0-or-later"}

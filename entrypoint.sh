@@ -7,7 +7,7 @@ getent group "$USER_GROUP"  >/dev/null 2>&1 || \
 
 id -u "$USER_NAME" >/dev/null 2>&1 || \
   useradd --uid "$USER_ID" --gid "$USER_GROUP" --shell /bin/bash \
-	--no-log-init --system --create-home --home-dir "$USER_HOME" "$USER_NAME"
+	--no-log-init --create-home --home-dir "$USER_HOME" "$USER_NAME"
 
 mkdir -p "${USER_HOME}/.ssh"
 chmod 700 "$USER_HOME/.ssh"
@@ -28,4 +28,4 @@ fi
 chown -R "$USER_NAME:$USER_GROUP" "$USER_HOME/.ssh"
 # following line can be used to test ssh connection
 #exec gosu "$USER_NAME" ssh -Tvvv git@github.com
-exec gosu "$USER_NAME" uv run gitzconsul "$@"
+exec gosu "$USER_NAME" /code/.venv/bin/gitzconsul "$@"
