@@ -26,11 +26,11 @@ from gitzconsul.treewalk import treewalk
 from gitzconsul.consultxn import (
     get_tree_kv_indexes,
     ConsulConnection,
-    ConsulTransaction
+    ConsulTransaction,
 )
 
 
-log = logging.getLogger('gitzconsul')
+log = logging.getLogger("gitzconsul")
 
 
 class SyncKVException(Exception):
@@ -56,11 +56,11 @@ class SyncKVChanges:
     def counts(self):
         """Returns a dict with counts for each change"""
         return {
-            'add': len(self.to_add),
-            'mod': len(self.to_modify),
-            'del': len(self.to_delete),
-            'consul': self.num_consul_keys,
-            'dir': self.num_dir_keys,
+            "add": len(self.to_add),
+            "mod": len(self.to_modify),
+            "del": len(self.to_delete),
+            "consul": self.num_consul_keys,
+            "dir": self.num_dir_keys,
         }
 
 
@@ -82,12 +82,11 @@ class SyncKV:
         self.root = root
         self.name = name
         self.consul_connection = consul_connection
-        self.topkey = self.name + '/'
+        self.topkey = self.name + "/"
 
-    def do(self):   # pylint: disable=invalid-name
+    def do(self):
         """Do the sync"""
-        known_kv_items = dict(get_tree_kv_indexes(self.consul_connection,
-                                                  self.topkey))
+        known_kv_items = dict(get_tree_kv_indexes(self.consul_connection, self.topkey))
         log.debug("number of kv items in consul: %d", len(known_kv_items))
         known_kv_keys = set(known_kv_items)
         self.changes = SyncKVChanges(num_consul_keys=len(known_kv_items))
@@ -113,22 +112,21 @@ class SyncKV:
                     self.changes.to_modify.append((key, value, idx))
                 del known_kv_items[key]
             self.changes.num_dir_keys += 1
-        self.changes.to_delete = [
-            (key, value[1])
-            for key, value in known_kv_items.items()
-        ]
+        self.changes.to_delete = [(key, value[1]) for key, value in known_kv_items.items()]
         self.kv_sync()
 
     def kv_sync(self):
         """Count changes and sent them to consul if needed"""
         if not self.changes.needed:
             return
-        log.info("Consul: %d Dir: %d Modified: %d Added: %d Deleted: %d",
-                 self.changes.counts['consul'],
-                 self.changes.counts['dir'],
-                 self.changes.counts['mod'],
-                 self.changes.counts['add'],
-                 self.changes.counts['del'])
+        log.info(
+            "Consul: %d Dir: %d Modified: %d Added: %d Deleted: %d",
+            self.changes.counts["consul"],
+            self.changes.counts["dir"],
+            self.changes.counts["mod"],
+            self.changes.counts["add"],
+            self.changes.counts["del"],
+        )
         with ConsulTransaction(self.consul_connection) as txn:
             self.kv_modify(txn)
             self.kv_add(txn)

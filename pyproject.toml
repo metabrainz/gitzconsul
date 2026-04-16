@@ -1,37 +1,53 @@
-[tool.poetry]
+[project]
 name = "gitzconsul"
 version = "0.2.7"
 description = "Bridge betwen git repositories and consul kv, inspired by git2consul"
-authors = ["Laurent Monin <zas@metabrainz.org>"]
-license = "GPL-3.0-or-later"
+authors = [{name = "Laurent Monin", email = "zas@metabrainz.org"}]
+license = {text = "GPL-3.0-or-later"}
 readme = "README.md"
-repository = "https://github.com/metabrainz/gitzconsul"
-
+requires-python = ">=3.10"
 keywords = ["consul", "docker", "kv registration"]
-
 classifiers = [
-    "Topic :: Software Development :: Libraries :: Python Modules"
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "click>=7.1.2",
+    "requests>=2.25.1",
 ]
 
-
-[tool.poetry.dependencies]
-python = "^3.8"
-click = ">=7.1.2"
-requests = ">=2.25.1"
-
-[tool.poetry.dev-dependencies]
-flake8 = "^3.8.4"
-pytest = "^6.2.2"
-wheel = "^0.36.2"
-pytest-cov = "^2.11.1"
-pylint = "^2.6.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 gitzconsul = "gitzconsul.main:main"
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[project.urls]
+Repository = "https://github.com/metabrainz/gitzconsul"
 
-[tool.pylint.format]
-max-line-length = 120
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.10",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.coverage.run]
+branch = true
+source = ["gitzconsul"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if self.debug:",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+ignore_errors = true
+omit = ["tests/*"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

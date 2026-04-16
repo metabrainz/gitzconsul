@@ -2,22 +2,29 @@
 
 A Python alternative to git2consul
 
-## Install poetry
+## Install uv
 
-https://python-poetry.org/docs/#installation
+https://docs.astral.sh/uv/getting-started/installation/
 
 ## Dev env
 
 ```bash
-poetry shell
-poetry install
-gitzconsul --help
+uv sync
+uv run gitzconsul --help
+```
+
+## Running tests
+
+```bash
+uv run ruff check gitzconsul tests
+uv run ruff format gitzconsul tests
+uv run python -m pytest -v --cov=gitzconsul tests/
 ```
 
 ## Dependencies
 
 - `git` command
-- python >= 3.8
+- python >= 3.10
 - python3 `requests` and `click` modules (see `pyproject.toml`)
 
 ## Usage
@@ -98,6 +105,7 @@ curl http://localhost:8500/v1/kv/mytopkey?keys
 - Directory specified by `--root` isn't prepended to keys and any content outside of it is ignored.
 - JSON file names are used as keys (it keeps the extension)
 - If a previously parsed json file becomes unparseable, keys related to it are left untouched.
+- The default `--git-ref` is `refs/heads/master`. Use `--git-ref refs/heads/main` for repositories using `main` as default branch.
 
 
 ## Docker
@@ -123,6 +131,8 @@ docker pull metabrainz/gitzconsul
 ```bash
 docker build . -t gitzconsul
 ```
+
+The image uses [tini](https://github.com/krallin/tini) as PID 1 to properly reap zombie processes spawned by git/ssh operations.
 
 
 It will look for ssh files in /tmp/.ssh and copy them over proper user's home with proper perms:

@@ -24,17 +24,16 @@ import signal
 import sys
 
 
-log = logging.getLogger('gitzconsul')
+log = logging.getLogger("gitzconsul")
 
 
 class Context:
     """meant to store common stuff, like config"""
-    kill_now = False
-    on_exit = {}
-    _sig2name = None
-    gitzconsul = None
 
     def __init__(self, options):
+        self.kill_now = False
+        self.on_exit = {}
+        self._sig2name = None
         self.options = options
         self.configure_logging(options)
 
@@ -50,14 +49,11 @@ class Context:
         if self._sig2name is None:
             # extract signal names from signal module
             # signal.Signals is an enum
-            # https://github.com/PyCQA/pylint/issues/2804
-            # pylint: disable=no-member
             self._sig2name = {s.value: s.name for s in signal.Signals}
 
         name = self._sig2name.get(signum, signum)
         log.info("Received %s signal", name)
 
-    # pylint: disable=unused-argument
     def _ignore_signal(self, signum, frame):
         self._log_signal(signum)
 
@@ -76,20 +72,20 @@ class Context:
         """configure logging"""
         console_handler = logging.StreamHandler(sys.stderr)
         handlers = [console_handler]
-        logfile = self.options['logfile']
+        logfile = self.options["logfile"]
         if logfile:
             try:
                 filehandler = logging.FileHandler(filename=logfile)
                 handlers.append(filehandler)
-            except Exception:  # pylint: disable=broad-except
-                pass
+            except Exception:
+                log.warning("Could not open log file: %s", logfile)
 
         logging.basicConfig(
             level=logging.ERROR,
-            format='[%(asctime)s] {%(module)s:%(lineno)d} %(levelname)s - %(message)s',
-            handlers=handlers
+            format="[%(asctime)s] {%(module)s:%(lineno)d} %(levelname)s - %(message)s",
+            handlers=handlers,
         )
         try:
-            log.setLevel(options['loglevel'])
+            log.setLevel(options["loglevel"])
         except ValueError as exc:
             log.error(exc)

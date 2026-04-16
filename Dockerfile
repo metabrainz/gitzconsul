@@ -1,4 +1,4 @@
-FROM python:3.10-slim-buster
+FROM python:3.14-slim-bookworm
 
 LABEL maintainer="Laurent Monin <zas@metabrainz.org>" \
     org.opencontainers.image.title="gitzconsul: git repository to consul kv" \
@@ -16,13 +16,9 @@ ENV \
   # pip:
   PIP_NO_CACHE_DIR=off \
   PIP_DISABLE_PIP_VERSION_CHECK=on \
-  PIP_DEFAULT_TIMEOUT=100 \
-  # poetry:
-  POETRY_VERSION=1.4.2 \
-  POETRY_NO_INTERACTION=1 \
-  POETRY_VIRTUALENVS_CREATE=false \
-  POETRY_CACHE_DIR='/var/cache/pypoetry' \
-  PATH="$PATH:/root/.local/bin"
+  PIP_DEFAULT_TIMEOUT=100
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # System deps:
 RUN apt-get update \
@@ -32,18 +28,13 @@ RUN apt-get update \
     git \
     openssh-client \
     ca-certificates \
-  # Cleaning cache:
+    tini \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
-# Installing `poetry` package manager:
-# https://github.com/python-poetry/poetry
-RUN curl -sSL https://install.python-poetry.org | python - \
-  && poetry --version
-
 # install gosu
-ARG GOSU_VERSION=1.16
-ARG GOSU_PATH=/root/.local/bin/gosu
+ARG GOSU_VERSION=1.17
+ARG GOSU_PATH=/usr/local/bin/gosu
 RUN dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && echo "Downloading gosu $GOSU_VERSION-$dpkgArch -> $GOSU_PATH" \
  && curl --location --output "$GOSU_PATH" "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" \
@@ -51,11 +42,9 @@ RUN dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && gosu nobody true
 
 WORKDIR /code
-COPY .coveragerc .flake8 LICENSE README.md pyproject.toml /code/
-COPY gitzconsul /code/gitzconsul
-COPY tests /code/tests
+COPY . /code/
 
-RUN poetry install --no-interaction --no-ansi --only main
+RUN uv sync --frozen --no-dev --no-editable
 
 ARG USER_ID=61000
 ARG USER_GROUP_ID=61000
@@ -76,4 +65,4 @@ ENV USER_HOME=$USER_HOME
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
