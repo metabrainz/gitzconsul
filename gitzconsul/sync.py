@@ -23,7 +23,11 @@ import logging
 from pathlib import Path
 
 from gitzconsul.treewalk import treewalk
-from gitzconsul.consultxn import get_tree_kv_indexes, ConsulConnection, ConsulTransaction
+from gitzconsul.consultxn import (
+    get_tree_kv_indexes,
+    ConsulConnection,
+    ConsulTransaction,
+)
 
 
 log = logging.getLogger("gitzconsul")

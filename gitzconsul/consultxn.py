@@ -19,9 +19,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from base64 import b64decode, b64encode
+from base64 import (
+    b64decode,
+    b64encode,
+)
 import json
-from urllib.parse import unquote, quote, urlencode
+from urllib.parse import (
+    unquote,
+    quote,
+    urlencode,
+)
 
 import requests
 
