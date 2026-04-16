@@ -2,22 +2,21 @@
 
 A Python alternative to git2consul
 
-## Install poetry
+## Install uv
 
-https://python-poetry.org/docs/#installation
+https://docs.astral.sh/uv/getting-started/installation/
 
 ## Dev env
 
 ```bash
-poetry shell
-poetry install
-gitzconsul --help
+uv sync
+uv run gitzconsul --help
 ```
 
 ## Dependencies
 
 - `git` command
-- python >= 3.8
+- python >= 3.10
 - python3 `requests` and `click` modules (see `pyproject.toml`)
 
 ## Usage

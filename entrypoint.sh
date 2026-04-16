@@ -28,4 +28,4 @@ fi
 chown -R "$USER_NAME:$USER_GROUP" "$USER_HOME/.ssh"
 # following line can be used to test ssh connection
 #exec gosu "$USER_NAME" ssh -Tvvv git@github.com
-exec gosu "$USER_NAME" gitzconsul "$@"
+exec gosu "$USER_NAME" uv run gitzconsul "$@"
