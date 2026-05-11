@@ -119,6 +119,8 @@ def main(**options):
         sys.exit(1)
 
     first_run = True
+    cycle_count = 0
+    heartbeat_interval = max(1, 300 // interval)  # log every ~5 minutes
     while not context.kill_now:
         try:
             if git_url and is_a_git_repository(repo_path):
@@ -147,6 +149,9 @@ def main(**options):
             if context.options["debug"]:
                 log.debug(traceback.format_exc())
         finally:
+            cycle_count += 1
+            if cycle_count % heartbeat_interval == 0:
+                log.info("Still running (cycle %d)", cycle_count)
             if not context.kill_now:
                 log.debug("sleeping %d second(s)...", interval)
                 for _unused in range(0, interval):

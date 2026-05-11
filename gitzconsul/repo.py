@@ -37,6 +37,20 @@ RUNCMD_TIMEOUT = 120
 RUNCMD_ATTEMPTS = 3
 RUNCMD_RETRY_DELAY = 5
 
+TRANSIENT_ERROR_PATTERNS = (
+    "internal error performing authentication",
+    "Could not read from remote repository",
+    "Connection reset by peer",
+    "Connection timed out",
+    "Connection refused",
+    "kex_exchange_identification",
+)
+
+
+def _is_transient_error(stderr_msg):
+    """Check if a git error message indicates a transient (retryable) failure"""
+    return any(pattern in stderr_msg for pattern in TRANSIENT_ERROR_PATTERNS)
+
 
 class GitError(Exception):
     """Raises whenever git() returned with non-zero exit code"""
@@ -83,13 +97,27 @@ def git(*args, cwd=None):
             stdout = result.stdout.decode("utf-8").strip()
             if stdout:
                 log.debug("stdout: %s", stdout)
+            if attempts < RUNCMD_ATTEMPTS:
+                log.info("Recovered after %d retries: %s", RUNCMD_ATTEMPTS - attempts, " ".join(cmd))
             return stdout
         except subprocess.CalledProcessError as exc:
             # command failed
             log.debug("git exit code: %d", exc.returncode)
             log.debug("stdout: %r", exc.stdout)
             log.debug("stderr: %r", exc.stderr)
-            raise GitError(exc.stderr.decode("utf-8").strip(), cmd, returncode=exc.returncode) from exc
+            stderr_msg = exc.stderr.decode("utf-8").strip()
+            if _is_transient_error(stderr_msg):
+                attempts -= 1
+                if attempts:
+                    log.warning(
+                        "Sleeping %0.1f seconds, remaining attempts: %d, transient error: %s",
+                        RUNCMD_RETRY_DELAY,
+                        attempts,
+                        stderr_msg,
+                    )
+                    sleep(RUNCMD_RETRY_DELAY)
+                    continue
+            raise GitError(stderr_msg, cmd, returncode=exc.returncode) from exc
         except subprocess.TimeoutExpired as exc:
             attempts -= 1
             if attempts:
@@ -145,8 +173,9 @@ def init_git_repo(target_dir, git_remote, git_ref):
             log.info("Cloning repo...")
             git("clone", git_remote, str(path))
 
-        # create our own branch, and set it to proper ref
-        git("checkout", "-B", WORKING_BRANCH, git_ref, cwd=path)
+        # fetch latest and create our own branch at the remote ref
+        git("fetch", "origin", git_ref, cwd=path)
+        git("checkout", "-B", WORKING_BRANCH, "FETCH_HEAD", cwd=path)
 
         log.info("Local commit id: %s", get_local_commit_id(path))
         return True
@@ -201,3 +230,5 @@ def sync_with_remote(path, git_ref):
             raise SyncWithRemoteError(f"Couldn't fetch from remote: {exc}") from exc
 
         log.info("Synced to commit id: %s", commit_id)
+    else:
+        log.debug("No changes: local and remote at %s", local_commit_id)
