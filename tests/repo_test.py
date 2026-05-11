@@ -5,8 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from unittest.mock import patch
+
 from gitzconsul.repo import (
     GitError,
+    RUNCMD_ATTEMPTS,
+    _is_transient_error,
     git,
     init_git_repo,
     is_a_git_repository,
@@ -47,6 +51,29 @@ class TestGitCommand(unittest.TestCase):
             subprocess.run(["git", "init", d], capture_output=True, check=True)
             output = git("rev-parse", "--git-dir", cwd=d)
             self.assertEqual(output, ".git")
+
+    @patch("gitzconsul.repo.RUNCMD_RETRY_DELAY", 0)
+    @patch("gitzconsul.repo._run")
+    def test_git_retries_on_transient_error(self, mock_run):
+        """git() should retry on transient SSH errors before raising."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            128, ["git", "ls-remote"], output=b"", stderr=b"ERROR: internal error performing authentication"
+        )
+        with self.assertRaises(GitError) as ctx:
+            git("ls-remote", "origin")
+        self.assertIn("internal error performing authentication", str(ctx.exception))
+        self.assertEqual(mock_run.call_count, RUNCMD_ATTEMPTS)
+
+    @patch("gitzconsul.repo.RUNCMD_RETRY_DELAY", 0)
+    @patch("gitzconsul.repo._run")
+    def test_git_no_retry_on_permanent_error(self, mock_run):
+        """git() should not retry on non-transient errors."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            128, ["git", "push"], output=b"", stderr=b"fatal: not a git repository"
+        )
+        with self.assertRaises(GitError):
+            git("push")
+        self.assertEqual(mock_run.call_count, 1)
 
 
 class TestIsAGitRepository(unittest.TestCase):
@@ -100,6 +127,31 @@ class TestInitGitRepo(unittest.TestCase):
             self.assertTrue(result)
             self.assertTrue(is_a_git_repository(target))
 
+    def test_reinit_picks_up_new_remote_commits(self):
+        """Simulate container restart: existing repo, new commits on remote."""
+        with tempfile.TemporaryDirectory() as d:
+            bare, work = _create_bare_repo_with_commit(d)
+            target = Path(d) / "clone"
+            init_git_repo(str(target), str(bare), "refs/heads/main")
+            old_id = get_local_commit_id(target)
+
+            # Push a new commit via work dir
+            (work / "file2.txt").write_text("new", encoding="utf8")
+            subprocess.run(["git", "add", "."], cwd=str(work), capture_output=True, check=True)
+            subprocess.run(
+                ["git", "-c", "user.email=test@test", "-c", "user.name=test", "commit", "-m", "second"],
+                cwd=str(work),
+                capture_output=True,
+                check=True,
+            )
+            subprocess.run(["git", "push", "origin", "main"], cwd=str(work), capture_output=True, check=True)
+
+            # Re-init (simulates restart) should pick up the new commit
+            result = init_git_repo(str(target), str(bare), "refs/heads/main")
+            self.assertTrue(result)
+            new_id = get_local_commit_id(target)
+            self.assertNotEqual(old_id, new_id)
+
     def test_bad_remote_fails(self):
         with tempfile.TemporaryDirectory() as d:
             target = Path(d) / "clone"
@@ -142,3 +194,26 @@ class TestSyncWithRemote(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaises(SyncWithRemoteError):
                 sync_with_remote(Path(d), "refs/heads/main")
+
+
+class TestIsTransientError(unittest.TestCase):
+    def test_internal_auth_error(self):
+        self.assertTrue(_is_transient_error("ERROR: internal error performing authentication"))
+
+    def test_could_not_read_remote(self):
+        self.assertTrue(_is_transient_error("fatal: Could not read from remote repository."))
+
+    def test_connection_reset(self):
+        self.assertTrue(_is_transient_error("Connection reset by peer"))
+
+    def test_connection_timed_out(self):
+        self.assertTrue(_is_transient_error("Connection timed out"))
+
+    def test_kex_exchange(self):
+        self.assertTrue(_is_transient_error("kex_exchange_identification: read: Connection reset"))
+
+    def test_permission_denied_not_transient(self):
+        self.assertFalse(_is_transient_error("git@github.com: Permission denied (publickey)."))
+
+    def test_unrelated_error_not_transient(self):
+        self.assertFalse(_is_transient_error("fatal: not a git repository"))
