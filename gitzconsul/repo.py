@@ -230,3 +230,5 @@ def sync_with_remote(path, git_ref):
             raise SyncWithRemoteError(f"Couldn't fetch from remote: {exc}") from exc
 
         log.info("Synced to commit id: %s", commit_id)
+    else:
+        log.debug("No changes: local and remote at %s", local_commit_id)
