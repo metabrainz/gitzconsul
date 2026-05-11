@@ -97,6 +97,8 @@ def git(*args, cwd=None):
             stdout = result.stdout.decode("utf-8").strip()
             if stdout:
                 log.debug("stdout: %s", stdout)
+            if attempts < RUNCMD_ATTEMPTS:
+                log.info("Recovered after %d retries: %s", RUNCMD_ATTEMPTS - attempts, " ".join(cmd))
             return stdout
         except subprocess.CalledProcessError as exc:
             # command failed
